@@ -187,7 +187,8 @@ def webhook_1h_4h_1d():
                 price=data.get('price', 0),
                 recommendation=result['recommendation'],
                 signal_strength=result['signal_strength'],
-                kd_data=data.get('kd', {})
+                kd_data=data.get('kd', {}),
+                secondary_message=message
             )
         
         return jsonify({
@@ -237,7 +238,8 @@ def webhook_all():
                 price=data.get('price', 0),
                 recommendation=result['recommendation'],
                 signal_strength=result['signal_strength'],
-                kd_data=data.get('kd', {})
+                kd_data=data.get('kd', {}),
+                secondary_message=message
             )
         
         return jsonify({
