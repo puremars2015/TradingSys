@@ -40,9 +40,12 @@ def _send_telegram_message_via_bot(message: str, bot_token: str, user_id: str, l
         return False
 
 
-def send_telegram_message(message: str) -> bool:
+def send_telegram_message(message: str, secondary_message: str | None = None) -> bool:
     """
     Send message to primary Telegram user and optionally to a second bot/user.
+
+    - Primary bot always receives `message`
+    - Secondary bot receives `secondary_message` if provided, otherwise falls back to `message`
 
     Returns True if at least one configured send succeeds.
     """
@@ -58,7 +61,7 @@ def send_telegram_message(message: str) -> bool:
 
     if Config.TELEGRAM_BOT_TOKEN_2 and Config.TELEGRAM_USER_ID_2:
         secondary_result = _send_telegram_message_via_bot(
-            message,
+            secondary_message if secondary_message else message,
             Config.TELEGRAM_BOT_TOKEN_2,
             Config.TELEGRAM_USER_ID_2,
             'Telegram-Secondary'
@@ -120,7 +123,8 @@ def format_trading_signal(symbol: str, price: float, recommendation: str,
 
 
 def send_trading_notification(symbol: str, price: float, recommendation: str,
-                              signal_strength: str, kd_data: dict) -> bool:
+                              signal_strength: str, kd_data: dict,
+                              secondary_message: str | None = None) -> bool:
     """
     Send trading notification to Telegram
     
@@ -137,4 +141,4 @@ def send_trading_notification(symbol: str, price: float, recommendation: str,
     message = format_trading_signal(
         symbol, price, recommendation, signal_strength, kd_data
     )
-    return send_telegram_message(message)
+    return send_telegram_message(message, secondary_message=secondary_message)
