@@ -11,7 +11,7 @@ from app.config import Config
 from app.models import init_db, get_latest_signal, get_recent_signals
 from app.services.signal_analyzer import process_signal, should_notify
 from app.services.telegram_bot import send_trading_notification
-
+from app.services.llm_generator import generate_recommendation_message
 
 
 def create_app():
@@ -100,12 +100,20 @@ def webhook_5m_30m_60m():
         
         # Send notification if needed
         if result['should_notify']:
-            send_trading_notification(
+            message = generate_recommendation_message(
                 symbol=data.get('symbol'),
                 price=data.get('price', 0),
                 recommendation=result['recommendation'],
                 signal_strength=result['signal_strength'],
                 kd_data=data.get('kd', {})
+            )
+            send_trading_notification(
+                symbol=data.get('symbol'),
+                price=data.get('price', 0),
+                recommendation=result['recommendation'],
+                signal_strength=result['signal_strength'],
+                kd_data=data.get('kd', {}),
+                secondary_message=message
             )
 
         return jsonify({
@@ -164,12 +172,20 @@ def webhook_1h_4h_1d():
         result = process_signal(data, alert_group='swing')
         
         if result['should_notify']:
-            send_trading_notification(
+            message = generate_recommendation_message(
                 symbol=data.get('symbol'),
                 price=data.get('price', 0),
                 recommendation=result['recommendation'],
                 signal_strength=result['signal_strength'],
                 kd_data=data.get('kd', {})
+            )
+            send_trading_notification(
+                symbol=data.get('symbol'),
+                price=data.get('price', 0),
+                recommendation=result['recommendation'],
+                signal_strength=result['signal_strength'],
+                kd_data=data.get('kd', {}),
+                secondary_message=message
             )
 
         return jsonify({
@@ -207,12 +223,20 @@ def webhook_all():
         result = process_signal(data)
         
         if result['should_notify']:
-            send_trading_notification(
+            message = generate_recommendation_message(
                 symbol=data.get('symbol'),
                 price=data.get('price', 0),
                 recommendation=result['recommendation'],
                 signal_strength=result['signal_strength'],
                 kd_data=data.get('kd', {})
+            )
+            send_trading_notification(
+                symbol=data.get('symbol'),
+                price=data.get('price', 0),
+                recommendation=result['recommendation'],
+                signal_strength=result['signal_strength'],
+                kd_data=data.get('kd', {}),
+                secondary_message=message
             )
 
         return jsonify({

@@ -122,23 +122,59 @@ def format_trading_signal(symbol: str, price: float, recommendation: str,
     return message
 
 
+def format_trading_signal_no_kd(symbol: str, price: float, recommendation: str,
+                                signal_strength: str) -> str:
+    """
+    Format trading signal message without KD details (for secondary bot)
+    """
+    direction_emoji = "🟢" if recommendation == "做多" else "🔴"
+    strength_prefix = {
+        "建議": "📊",
+        "積極": "📈",
+        "強烈": "🚨"
+    }.get(signal_strength, "📊")
+
+    message = f"""
+{direction_emoji} <b>期貨訊號通知</b> {direction_emoji}
+
+<b>標的:</b> {symbol}
+<b>價格:</b> {price}
+<b>建議:</b> {recommendation} {strength_prefix}
+<b>強度:</b> {signal_strength}
+
+<i>此訊息由系統自動產生</i>
+""".strip()
+
+    return message
+
+
 def send_trading_notification(symbol: str, price: float, recommendation: str,
                               signal_strength: str, kd_data: dict,
                               secondary_message: str | None = None) -> bool:
     """
     Send trading notification to Telegram
-    
+
+    - Primary bot receives full message with KD details
+    - Secondary bot receives `secondary_message` if provided; otherwise it falls back
+      to the simplified message without KD details
+
     Args:
         symbol: Trading symbol
         price: Current price
         recommendation: '做多' or '做空'
         signal_strength: '建議', '積極', or '強烈'
         kd_data: KD indicator data
-    
+
     Returns:
         bool: True if notification was sent successfully
     """
     message = format_trading_signal(
         symbol, price, recommendation, signal_strength, kd_data
     )
-    return send_telegram_message(message, secondary_message=secondary_message)
+    fallback_secondary_message = format_trading_signal_no_kd(
+        symbol, price, recommendation, signal_strength
+    )
+    return send_telegram_message(
+        message,
+        secondary_message=secondary_message if secondary_message else fallback_secondary_message
+    )
