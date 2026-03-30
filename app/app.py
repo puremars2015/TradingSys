@@ -11,7 +11,7 @@ from app.config import Config
 from app.models import init_db, get_latest_signal, get_recent_signals
 from app.services.signal_analyzer import process_signal, should_notify
 from app.services.telegram_bot import send_trading_notification
-from app.services.llm_generator import generate_recommendation_message
+
 
 
 def create_app():
@@ -96,29 +96,18 @@ def webhook_5m_30m_60m():
                 return jsonify({'error': f'Missing required field: {field}'}), 400
         
         # Process the signal
-        result = process_signal(data)
+        result = process_signal(data, alert_group='intraday')
         
         # Send notification if needed
         if result['should_notify']:
-            # Generate LLM message
-            message = generate_recommendation_message(
+            send_trading_notification(
                 symbol=data.get('symbol'),
                 price=data.get('price', 0),
                 recommendation=result['recommendation'],
                 signal_strength=result['signal_strength'],
                 kd_data=data.get('kd', {})
             )
-            
-            # Send Telegram notification
-            send_trading_notification(
-                symbol=data.get('symbol'),
-                price=data.get('price', 0),
-                recommendation=result['recommendation'],
-                signal_strength=result['signal_strength'],
-                kd_data=data.get('kd', {}),
-                secondary_message=message
-            )
-        
+
         return jsonify({
             'success': True,
             'signal_id': result['row_id'],
@@ -126,7 +115,7 @@ def webhook_5m_30m_60m():
             'signal_strength': result['signal_strength'],
             'notified': result['should_notify']
         })
-        
+
     except Exception as e:
         print(f"[Webhook 5m/30m/60m] Error: {str(e)}")
         return jsonify({'error': str(e)}), 500
@@ -171,26 +160,17 @@ def webhook_1h_4h_1d():
             if '1d' not in kd and '1D' in kd:
                 kd['1d'] = kd.pop('1D')
         
-        result = process_signal(data)
+        result = process_signal(data, alert_group='swing')
         
         if result['should_notify']:
-            message = generate_recommendation_message(
+            send_trading_notification(
                 symbol=data.get('symbol'),
                 price=data.get('price', 0),
                 recommendation=result['recommendation'],
                 signal_strength=result['signal_strength'],
                 kd_data=data.get('kd', {})
             )
-            
-            send_trading_notification(
-                symbol=data.get('symbol'),
-                price=data.get('price', 0),
-                recommendation=result['recommendation'],
-                signal_strength=result['signal_strength'],
-                kd_data=data.get('kd', {}),
-                secondary_message=message
-            )
-        
+
         return jsonify({
             'success': True,
             'signal_id': result['row_id'],
@@ -198,7 +178,7 @@ def webhook_1h_4h_1d():
             'signal_strength': result['signal_strength'],
             'notified': result['should_notify']
         })
-        
+
     except Exception as e:
         print(f"[Webhook 1h/4h/1d] Error: {str(e)}")
         return jsonify({'error': str(e)}), 500
@@ -225,23 +205,14 @@ def webhook_all():
         result = process_signal(data)
         
         if result['should_notify']:
-            message = generate_recommendation_message(
+            send_trading_notification(
                 symbol=data.get('symbol'),
                 price=data.get('price', 0),
                 recommendation=result['recommendation'],
                 signal_strength=result['signal_strength'],
                 kd_data=data.get('kd', {})
             )
-            
-            send_trading_notification(
-                symbol=data.get('symbol'),
-                price=data.get('price', 0),
-                recommendation=result['recommendation'],
-                signal_strength=result['signal_strength'],
-                kd_data=data.get('kd', {}),
-                secondary_message=message
-            )
-        
+
         return jsonify({
             'success': True,
             'signal_id': result['row_id'],
@@ -249,7 +220,7 @@ def webhook_all():
             'signal_strength': result['signal_strength'],
             'notified': result['should_notify']
         })
-        
+
     except Exception as e:
         print(f"[Webhook All] Error: {str(e)}")
         return jsonify({'error': str(e)}), 500
