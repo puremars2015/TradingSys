@@ -1,6 +1,6 @@
 import sqlite3
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 from app.config import Config
 
 
@@ -171,6 +171,42 @@ def get_previous_signal(symbol: str = None, before_id: int = None, alert_group: 
         rows = cursor.fetchall()
         conn.close()
         return dict(rows[1]) if len(rows) > 1 else None
+
+
+def has_recent_duplicate_notification(
+    symbol: str,
+    alert_group: str,
+    recommendation: str,
+    signal_strength: str,
+    *,
+    exclude_id: int | None = None,
+    within_seconds: int = 60,
+) -> bool:
+    """Return True when an equivalent notifiable signal already exists within the recent window."""
+    conn = get_db()
+    cursor = conn.cursor()
+    threshold = (datetime.now() - timedelta(seconds=within_seconds)).isoformat()
+
+    query = '''
+        SELECT 1
+        FROM trading_signals
+        WHERE symbol = ?
+          AND alert_group = ?
+          AND recommendation = ?
+          AND signal_strength = ?
+          AND received_at >= ?
+    '''
+    params = [symbol, alert_group, recommendation, signal_strength, threshold]
+
+    if exclude_id is not None:
+        query += ' AND id != ?'
+        params.append(exclude_id)
+
+    query += ' ORDER BY id DESC LIMIT 1'
+    cursor.execute(query, params)
+    row = cursor.fetchone()
+    conn.close()
+    return row is not None
 
 
 def get_recent_signals(symbol: str = None, limit: int = 10) -> list:

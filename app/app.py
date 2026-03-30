@@ -113,7 +113,8 @@ def webhook_5m_30m_60m():
             'signal_id': result['row_id'],
             'recommendation': result['recommendation'],
             'signal_strength': result['signal_strength'],
-            'notified': result['should_notify']
+            'notified': result['should_notify'],
+            'deduped': result.get('deduped', False)
         })
 
     except Exception as e:
@@ -176,7 +177,8 @@ def webhook_1h_4h_1d():
             'signal_id': result['row_id'],
             'recommendation': result['recommendation'],
             'signal_strength': result['signal_strength'],
-            'notified': result['should_notify']
+            'notified': result['should_notify'],
+            'deduped': result.get('deduped', False)
         })
 
     except Exception as e:
@@ -218,7 +220,8 @@ def webhook_all():
             'signal_id': result['row_id'],
             'recommendation': result['recommendation'],
             'signal_strength': result['signal_strength'],
-            'notified': result['should_notify']
+            'notified': result['should_notify'],
+            'deduped': result.get('deduped', False)
         })
 
     except Exception as e:

@@ -6,7 +6,7 @@ Dual verification: TradingView signal field + historical data crossover detectio
 """
 
 from typing import Tuple, Optional
-from app.models import get_previous_signal, save_signal
+from app.models import get_previous_signal, has_recent_duplicate_notification, save_signal
 
 
 INTRADAY_ALERT_GROUP = 'intraday'
@@ -258,11 +258,24 @@ def process_signal(data: dict, alert_group: str | None = None) -> dict:
     
     # Check if notification should be sent
     notify = should_notify(recommendation, signal_strength)
+    duplicate_within_minute = False
+    if notify:
+        duplicate_within_minute = has_recent_duplicate_notification(
+            symbol=symbol,
+            alert_group=alert_group,
+            recommendation=recommendation,
+            signal_strength=signal_strength,
+            exclude_id=row_id,
+            within_seconds=60,
+        )
+        if duplicate_within_minute:
+            notify = False
     
     return {
         'row_id': row_id,
         'alert_group': alert_group,
         'recommendation': recommendation,
         'signal_strength': signal_strength,
-        'should_notify': notify
+        'should_notify': notify,
+        'deduped': duplicate_within_minute
     }
