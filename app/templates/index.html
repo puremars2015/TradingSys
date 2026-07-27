@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TradingView Signal Bot</title>
+    <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: #1a1a2e;
+            color: #eee;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            color: #00d4ff;
+        }
+        .status {
+            background: #16213e;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .status h2 {
+            color: #00d4ff;
+            margin-bottom: 15px;
+        }
+        .status-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+        .status-item {
+            background: #0f3460;
+            padding: 15px;
+            border-radius: 8px;
+        }
+        .status-item label {
+            display: block;
+            color: #888;
+            font-size: 12px;
+            margin-bottom: 5px;
+        }
+        .status-item value {
+            display: block;
+            font-size: 18px;
+            font-weight: bold;
+        }
+        .signal-table {
+            width: 100%;
+            background: #16213e;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-top: 20px;
+        }
+        .signal-table th, .signal-table td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid #0f3460;
+        }
+        .signal-table th {
+            background: #0f3460;
+            color: #00d4ff;
+        }
+        .signal-table tr:hover {
+            background: #0f3460;
+        }
+        .badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .badge-long {
+            background: #00c853;
+            color: #fff;
+        }
+        .badge-short {
+            background: #ff1744;
+            color: #fff;
+        }
+        .badge-none {
+            background: #666;
+            color: #fff;
+        }
+        .badge-strong {
+            background: #ff9100;
+            color: #fff;
+        }
+        .badge-active {
+            background: #00d4ff;
+            color: #000;
+        }
+        .endpoints {
+            background: #16213e;
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+        .endpoints h2 {
+            color: #00d4ff;
+            margin-bottom: 15px;
+        }
+        .endpoint {
+            background: #0f3460;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+        }
+        .endpoint code {
+            display: block;
+            background: #1a1a2e;
+            padding: 10px;
+            border-radius: 4px;
+            margin-top: 8px;
+            font-size: 13px;
+            overflow-x: auto;
+        }
+        .footer {
+            text-align: center;
+            margin-top: 30px;
+            color: #666;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📊 TradingView Signal Bot</h1>
+        
+        <div class="status">
+            <h2>系統狀態</h2>
+            <div class="status-grid">
+                <div class="status-item">
+                    <label>服務狀態</label>
+                    <value style="color: {% if healthy %}#00c853{% else %}#ff1744{% endif %};">
+                        {% if healthy %}✅ 運行中{% else %}❌ 異常{% endif %}
+                    </value>
+                </div>
+                <div class="status-item">
+                    <label>資料庫</label>
+                    <value style="color: {% if healthy %}#00c853{% else %}#ff1744{% endif %};">
+                        {% if healthy %}✅ 正常{% else %}❌ 異常{% endif %}
+                    </value>
+                </div>
+                <div class="status-item">
+                    <label>最新標的</label>
+                    <value>{{ latest_signal.symbol if latest_signal else 'N/A' }}</value>
+                </div>
+                <div class="status-item">
+                    <label>最新建議</label>
+                    <value>{{ latest_signal.recommendation if latest_signal else 'N/A' }}</value>
+                </div>
+                <div class="status-item">
+                    <label>訊號強度</label>
+                    <value>{{ latest_signal.signal_strength if latest_signal else 'N/A' }}</value>
+                </div>
+                <div class="status-item">
+                    <label>資料筆數</label>
+                    <value>{{ db_records if healthy else 'N/A' }}</value>
+                </div>
+            </div>
+        </div>
+        
+        <div class="endpoints">
+            <h2>Webhook 端點</h2>
+            <div class="endpoint">
+                <strong>KD (1H/4H/1D) + SMA 數值陣列</strong>
+                <code>POST /webhook/kd-sma</code>
+                <code>[SMA10, SMA60, SMA120, SMA720, K1H, D1H, K4H, D4H, K1D, D1D, PRICE]</code>
+            </div>
+            <div class="endpoint">
+                <strong>健康檢查</strong>
+                <code>GET /api/status</code>
+            </div>
+            <div class="endpoint">
+                <strong>LINE Bot Webhook</strong>
+                <code>POST /line-webhook</code>
+            </div>
+        </div>
+        
+        <table class="signal-table">
+            <thead>
+                <tr>
+                    <th>時間</th>
+                    <th>標的</th>
+                    <th>價格</th>
+                    <th>1H K/D</th>
+                    <th>4H K/D</th>
+                    <th>1D K/D</th>
+                    <th>均線</th>
+                    <th>建議</th>
+                    <th>強度</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for signal in recent_signals %}
+                <tr>
+                    <td>{{ signal.received_at[:19] if signal.received_at else 'N/A' }}</td>
+                    <td>{{ signal.symbol }}</td>
+                    <td>{{ signal.price }}</td>
+                    <td>{{ "%.2f"|format(signal.k_60m) if signal.k_60m else 'N/A' }} / {{ "%.2f"|format(signal.d_60m) if signal.d_60m else 'N/A' }}</td>
+                    <td>{{ "%.2f"|format(signal.k_4h) if signal.k_4h else 'N/A' }} / {{ "%.2f"|format(signal.d_4h) if signal.d_4h else 'N/A' }}</td>
+                    <td>{{ "%.2f"|format(signal.k_1d) if signal.k_1d else 'N/A' }} / {{ "%.2f"|format(signal.d_1d) if signal.d_1d else 'N/A' }}</td>
+                    <td>
+                        {% if signal.sma10 and signal.sma60 and signal.sma120 and signal.sma720 %}
+                            {% if signal.sma10 > signal.sma60 > signal.sma120 > signal.sma720 %}多頭
+                            {% elif signal.sma10 < signal.sma60 < signal.sma120 < signal.sma720 %}空頭
+                            {% else %}糾結{% endif %}
+                        {% else %}N/A{% endif %}
+                    </td>
+                    <td>
+                        {% if signal.recommendation == '做多' %}
+                        <span class="badge badge-long">做多</span>
+                        {% elif signal.recommendation == '做空' %}
+                        <span class="badge badge-short">做空</span>
+                        {% elif signal.recommendation == '持有' %}
+                        <span class="badge badge-active">持有</span>
+                        {% else %}
+                        <span class="badge badge-none">無</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if signal.signal_strength == '強烈' %}
+                        <span class="badge badge-strong">強烈</span>
+                        {% elif signal.signal_strength in ['積極', '建議'] %}
+                        <span class="badge badge-active">{{ signal.signal_strength }}</span>
+                        {% else %}
+                        <span class="badge badge-none">{{ signal.signal_strength or '無' }}</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="9" style="text-align: center; color: #888;">暫無資料</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        
+        <div class="footer">
+            <p>TradingView Signal Bot © 2026</p>
+        </div>
+    </div>
+</body>
+</html>

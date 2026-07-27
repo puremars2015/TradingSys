@@ -71,76 +71,107 @@ def send_telegram_message(message: str, secondary_message: str | None = None) ->
     return any(results)
 
 
-def format_trading_signal(symbol: str, price: float, recommendation: str, 
-                          signal_strength: str, kd_data: dict) -> str:
+DIRECTION_EMOJI = {'做多': '🟢', '做空': '🔴', '持有': '🟡'}
+STRENGTH_EMOJI = {'建議': '📊', '積極': '📈', '強烈': '🚨', '持續': '⏳'}
+
+# 顯示用的均線與週期標籤（皆為 1H 週期計算）
+SMA_LABELS = (('sma10', 'SMA10'), ('sma60', 'SMA60'), ('sma120', 'SMA120'), ('sma720', 'SMA720'))
+KD_LABELS = (('1h', '1H'), ('4h', '4H'), ('1d', '1D'))
+
+
+def _format_price(price) -> str:
+    return f"{price:,.2f}" if isinstance(price, (int, float)) else "N/A"
+
+
+def _sma_block(sma_data: dict) -> str:
+    """把四條均線與排列狀態排成 Telegram 用的區塊。"""
+    if not sma_data:
+        return "  暫無"
+
+    lines = [f"{label}: {sma_data[key]:,.2f}" for key, label in SMA_LABELS
+             if sma_data.get(key) is not None]
+
+    values = [sma_data.get(key) for key, _ in SMA_LABELS]
+    if all(v is not None for v in values):
+        if all(a > b for a, b in zip(values, values[1:])):
+            lines.append("排列: 多頭排列 (10>60>120>720)")
+        elif all(a < b for a, b in zip(values, values[1:])):
+            lines.append("排列: 空頭排列 (10<60<120<720)")
+        else:
+            lines.append("排列: 糾結")
+
+    return "  " + "\n  ".join(lines) if lines else "  暫無"
+
+
+def _kd_block(kd_data: dict) -> str:
+    lines = []
+    for key, label in KD_LABELS:
+        entry = kd_data.get(key) or {}
+        k = entry.get('k')
+        d = entry.get('d')
+        if k is not None and d is not None:
+            lines.append(f"  {label}: K={k:.2f} D={d:.2f} [{entry.get('dir', '')}]")
+    return "\n".join(lines) if lines else "  KD資料暫無"
+
+
+def format_trading_signal(symbol: str, price: float, recommendation: str,
+                          signal_strength: str, kd_data: dict,
+                          sma_data: dict = None, trigger: str = None) -> str:
     """
     Format trading signal as Telegram message
-    
+
     Args:
         symbol: Trading symbol (e.g., TXF1!)
         price: Current price
-        recommendation: '做多' or '做空'
-        signal_strength: '建議', '積極', or '強烈'
-        kd_data: KD indicator data
-    
+        recommendation: '做多', '做空', or '持有'
+        signal_strength: '建議', '積極', '強烈', or '持續'
+        kd_data: KD indicator data (1h/4h/1d)
+        sma_data: SMA indicator data (sma10/60/120/720, 皆為 1H 週期)
+        trigger: 觸發原因說明
+
     Returns:
         str: Formatted message
     """
-    direction_emoji = "🟢" if recommendation == "做多" else "🔴"
-    strength_prefix = {
-        "建議": "📊",
-        "積極": "📈",
-        "強烈": "🚨"
-    }.get(signal_strength, "📊")
-    
-    # Build KD info
-    kd_lines = []
-    for timeframe in ['5m', '30m', '60m', '4h', '1d']:
-        if timeframe in kd_data:
-            k = kd_data[timeframe].get('k')
-            d = kd_data[timeframe].get('d')
-            direction = kd_data[timeframe].get('dir', '')
-            if k is not None and d is not None:
-                kd_lines.append(f"  {timeframe}: K={k:.2f} D={d:.2f} [{direction}]")
-    
-    kd_text = "\n".join(kd_lines) if kd_lines else "KD資料暫無"
-    
+    direction_emoji = DIRECTION_EMOJI.get(recommendation, "⚪")
+    strength_prefix = STRENGTH_EMOJI.get(signal_strength, "📊")
+    trigger_line = f"\n<b>觸發:</b> {trigger}" if trigger else ""
+
     message = f"""
 {direction_emoji} <b>期貨訊號通知</b> {direction_emoji}
 
 <b>標的:</b> {symbol}
-<b>價格:</b> {price}
+<b>價格:</b> {_format_price(price)}
 <b>建議:</b> {recommendation} {strength_prefix}
-<b>強度:</b> {signal_strength}
+<b>強度:</b> {signal_strength}{trigger_line}
+
+<b>SMA (1H):</b>
+{_sma_block(sma_data)}
 
 <b>KD指標:</b>
-{kd_text}
+{_kd_block(kd_data)}
 
 <i>此訊息由系統自動產生</i>
 """.strip()
-    
+
     return message
 
 
 def format_trading_signal_no_kd(symbol: str, price: float, recommendation: str,
-                                signal_strength: str) -> str:
+                                signal_strength: str, trigger: str = None) -> str:
     """
     Format trading signal message without KD details (for secondary bot)
     """
-    direction_emoji = "🟢" if recommendation == "做多" else "🔴"
-    strength_prefix = {
-        "建議": "📊",
-        "積極": "📈",
-        "強烈": "🚨"
-    }.get(signal_strength, "📊")
+    direction_emoji = DIRECTION_EMOJI.get(recommendation, "⚪")
+    strength_prefix = STRENGTH_EMOJI.get(signal_strength, "📊")
+    trigger_line = f"\n<b>觸發:</b> {trigger}" if trigger else ""
 
     message = f"""
 {direction_emoji} <b>期貨訊號通知</b> {direction_emoji}
 
 <b>標的:</b> {symbol}
-<b>價格:</b> {price}
+<b>價格:</b> {_format_price(price)}
 <b>建議:</b> {recommendation} {strength_prefix}
-<b>強度:</b> {signal_strength}
+<b>強度:</b> {signal_strength}{trigger_line}
 
 <i>此訊息由系統自動產生</i>
 """.strip()
@@ -150,7 +181,8 @@ def format_trading_signal_no_kd(symbol: str, price: float, recommendation: str,
 
 def send_trading_notification(symbol: str, price: float, recommendation: str,
                               signal_strength: str, kd_data: dict,
-                              secondary_message: str | None = None) -> bool:
+                              secondary_message: str | None = None,
+                              sma_data: dict = None, trigger: str = None) -> bool:
     """
     Send trading notification to Telegram
 
@@ -161,18 +193,20 @@ def send_trading_notification(symbol: str, price: float, recommendation: str,
     Args:
         symbol: Trading symbol
         price: Current price
-        recommendation: '做多' or '做空'
-        signal_strength: '建議', '積極', or '強烈'
-        kd_data: KD indicator data
+        recommendation: '做多', '做空', or '持有'
+        signal_strength: '建議', '積極', '強烈', or '持續'
+        kd_data: KD indicator data (1h/4h/1d)
+        sma_data: SMA indicator data (sma10/60/120/720)
+        trigger: 觸發原因說明
 
     Returns:
         bool: True if notification was sent successfully
     """
     message = format_trading_signal(
-        symbol, price, recommendation, signal_strength, kd_data
+        symbol, price, recommendation, signal_strength, kd_data, sma_data, trigger
     )
     fallback_secondary_message = format_trading_signal_no_kd(
-        symbol, price, recommendation, signal_strength
+        symbol, price, recommendation, signal_strength, trigger
     )
     return send_telegram_message(
         message,

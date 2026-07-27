@@ -21,6 +21,10 @@ def init_db():
             symbol TEXT NOT NULL,
             price REAL,
             alert_group TEXT DEFAULT 'unknown',
+            sma10 REAL,
+            sma60 REAL,
+            sma120 REAL,
+            sma720 REAL,
             k_5m REAL, d_5m REAL, dir_5m TEXT,
             k_30m REAL, d_30m REAL, dir_30m TEXT,
             k_60m REAL, d_60m REAL, dir_60m TEXT,
@@ -43,6 +47,14 @@ def init_db():
             "ELSE 'unknown' END "
             "WHERE alert_group IS NULL OR alert_group = '' OR alert_group = 'unknown'"
         )
+    if 'sma10' not in columns:
+        conn.execute("ALTER TABLE trading_signals ADD COLUMN sma10 REAL")
+    if 'sma60' not in columns:
+        conn.execute("ALTER TABLE trading_signals ADD COLUMN sma60 REAL")
+    if 'sma120' not in columns:
+        conn.execute("ALTER TABLE trading_signals ADD COLUMN sma120 REAL")
+    if 'sma720' not in columns:
+        conn.execute("ALTER TABLE trading_signals ADD COLUMN sma720 REAL")
 
     conn.commit()
     conn.close()
@@ -51,44 +63,45 @@ def init_db():
 def save_signal(data: dict, recommendation: str = None, signal_strength: str = None, alert_group: str = 'unknown') -> int:
     """
     Save trading signal to database
-    
+
+    1H 的 K/D 沿用既有的 k_60m/d_60m/dir_60m 欄位（同一組指標，只是換了命名），
+    舊的 5m/30m 欄位保留在資料表裡給歷史資料用，新訊號不再寫入。
+
     Args:
-        data: Signal data from TradingView
-        recommendation: Analysis recommendation (做多/做空/無)
-        signal_strength: Signal strength (無/建議/積極/強烈)
-    
+        data: Parsed signal data (見 signal_analyzer.parse_payload)
+        recommendation: Analysis recommendation (做多/做空/持有/無)
+        signal_strength: Signal strength (無/建議/積極/強烈/持續)
+
     Returns:
         int: Last inserted row ID
     """
     conn = get_db()
     cursor = conn.cursor()
-    
+
     kd = data.get('kd', {})
-    
+    sma = data.get('sma', {})
+
     cursor.execute('''
         INSERT INTO trading_signals (
             received_at, symbol, price, alert_group,
-            k_5m, d_5m, dir_5m,
-            k_30m, d_30m, dir_30m,
+            sma10, sma60, sma120, sma720,
             k_60m, d_60m, dir_60m,
             k_4h, d_4h, dir_4h,
             k_1d, d_1d, dir_1d,
             recommendation, signal_strength, raw_data
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ''', (
         datetime.now().isoformat(),
         data.get('symbol'),
         data.get('price'),
         alert_group,
-        kd.get('5m', {}).get('k'),
-        kd.get('5m', {}).get('d'),
-        kd.get('5m', {}).get('dir'),
-        kd.get('30m', {}).get('k'),
-        kd.get('30m', {}).get('d'),
-        kd.get('30m', {}).get('dir'),
-        kd.get('60m', {}).get('k'),
-        kd.get('60m', {}).get('d'),
-        kd.get('60m', {}).get('dir'),
+        sma.get('sma10'),
+        sma.get('sma60'),
+        sma.get('sma120'),
+        sma.get('sma720'),
+        kd.get('1h', {}).get('k'),
+        kd.get('1h', {}).get('d'),
+        kd.get('1h', {}).get('dir'),
         kd.get('4h', {}).get('k'),
         kd.get('4h', {}).get('d'),
         kd.get('4h', {}).get('dir'),
@@ -99,7 +112,7 @@ def save_signal(data: dict, recommendation: str = None, signal_strength: str = N
         signal_strength,
         json.dumps(data)
     ))
-    
+
     conn.commit()
     row_id = cursor.lastrowid
     conn.close()
@@ -110,7 +123,7 @@ def get_latest_signal(symbol: str = None) -> dict:
     """Get the latest signal record"""
     conn = get_db()
     cursor = conn.cursor()
-    
+
     if symbol:
         cursor.execute(
             'SELECT * FROM trading_signals WHERE symbol = ? ORDER BY id DESC LIMIT 1',
@@ -118,10 +131,10 @@ def get_latest_signal(symbol: str = None) -> dict:
         )
     else:
         cursor.execute('SELECT * FROM trading_signals ORDER BY id DESC LIMIT 1')
-    
+
     row = cursor.fetchone()
     conn.close()
-    
+
     return dict(row) if row else None
 
 
@@ -129,7 +142,7 @@ def get_previous_signal(symbol: str = None, before_id: int = None, alert_group: 
     """Get the previous signal record before the given ID, optionally filtered by alert group."""
     conn = get_db()
     cursor = conn.cursor()
-    
+
     group_clause = ""
     params = []
     if alert_group:
@@ -138,7 +151,7 @@ def get_previous_signal(symbol: str = None, before_id: int = None, alert_group: 
 
     if symbol and before_id:
         cursor.execute(f'''
-            SELECT * FROM trading_signals 
+            SELECT * FROM trading_signals
             WHERE symbol = ? AND id < ?{group_clause}
             ORDER BY id DESC LIMIT 1
         ''', (symbol, before_id, *params))
@@ -147,7 +160,7 @@ def get_previous_signal(symbol: str = None, before_id: int = None, alert_group: 
         return dict(rows[0]) if len(rows) > 0 else None
     elif symbol:
         cursor.execute(f'''
-            SELECT * FROM trading_signals 
+            SELECT * FROM trading_signals
             WHERE symbol = ?{group_clause}
             ORDER BY id DESC LIMIT 1
         ''', (symbol, *params))
@@ -156,8 +169,8 @@ def get_previous_signal(symbol: str = None, before_id: int = None, alert_group: 
         return dict(rows[0]) if len(rows) > 0 else None
     elif before_id:
         cursor.execute('''
-            SELECT * FROM trading_signals 
-            WHERE id < ? 
+            SELECT * FROM trading_signals
+            WHERE id < ?
             ORDER BY id DESC LIMIT 1
         ''', (before_id,))
         rows = cursor.fetchall()
@@ -165,7 +178,7 @@ def get_previous_signal(symbol: str = None, before_id: int = None, alert_group: 
         return dict(rows[0]) if len(rows) > 0 else None
     else:
         cursor.execute('''
-            SELECT * FROM trading_signals 
+            SELECT * FROM trading_signals
             ORDER BY id DESC LIMIT 2
         ''')
         rows = cursor.fetchall()
@@ -213,7 +226,7 @@ def get_recent_signals(symbol: str = None, limit: int = 10) -> list:
     """Get recent signal records"""
     conn = get_db()
     cursor = conn.cursor()
-    
+
     if symbol:
         cursor.execute(
             'SELECT * FROM trading_signals WHERE symbol = ? ORDER BY id DESC LIMIT ?',
@@ -224,8 +237,8 @@ def get_recent_signals(symbol: str = None, limit: int = 10) -> list:
             'SELECT * FROM trading_signals ORDER BY id DESC LIMIT ?',
             (limit,)
         )
-    
+
     rows = cursor.fetchall()
     conn.close()
-    
+
     return [dict(row) for row in rows]
