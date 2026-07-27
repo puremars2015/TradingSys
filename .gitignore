@@ -1,0 +1,5 @@
+.env
+backups/*
+app/__pycache__/
+app/data/
+app/services/__pycache__/
