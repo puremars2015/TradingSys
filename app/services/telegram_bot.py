@@ -4,6 +4,7 @@ Telegram Bot Service
 Sends trading recommendations to users via Telegram bot.
 """
 
+import html
 import requests
 from app.config import Config
 
@@ -19,9 +20,12 @@ def _send_telegram_message_via_bot(message: str, bot_token: str, user_id: str, l
         return False
 
     url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+    # AI 內容是純文字，但 Telegram 使用 HTML parse mode。若 AI 回傳
+    # 「SMA10<60」等比較符號，未跳脫會讓 Telegram 拒收整則訊息。
+    safe_message = html.escape(message, quote=False) if label == 'Telegram-Secondary' else message
     payload = {
         'chat_id': user_id,
-        'text': message,
+        'text': safe_message,
         'parse_mode': 'HTML'
     }
 
@@ -30,22 +34,24 @@ def _send_telegram_message_via_bot(message: str, bot_token: str, user_id: str, l
         result = response.json()
 
         if result.get('ok'):
-            print(f"[{label}] Message sent successfully")
+            print(f"[{label}] Message sent successfully (message_id={result.get('result', {}).get('message_id')})", flush=True)
             return True
         else:
-            print(f"[{label}] Error: {result.get('description')}")
+            print(f"[{label}] Error: HTTP {response.status_code}; {result.get('description')}", flush=True)
             return False
     except Exception as e:
-        print(f"[{label}] Exception: {str(e)}")
+        print(f"[{label}] Exception: {str(e)}", flush=True)
         return False
 
 
-def send_telegram_message(message: str, secondary_message: str | None = None) -> bool:
+def send_telegram_message(message: str, secondary_message: str | None = None,
+                          send_secondary: bool = True) -> bool:
     """
     Send message to primary Telegram user and optionally to a second bot/user.
 
     - Primary bot always receives `message`
     - Secondary bot receives `secondary_message` if provided, otherwise falls back to `message`
+    - `send_secondary=False` sends only through the primary bot
 
     Returns True if at least one configured send succeeds.
     """
@@ -59,7 +65,7 @@ def send_telegram_message(message: str, secondary_message: str | None = None) ->
     )
     results.append(primary_result)
 
-    if Config.TELEGRAM_BOT_TOKEN_2 and Config.TELEGRAM_USER_ID_2:
+    if send_secondary and Config.TELEGRAM_BOT_TOKEN_2 and Config.TELEGRAM_USER_ID_2:
         secondary_result = _send_telegram_message_via_bot(
             secondary_message if secondary_message else message,
             Config.TELEGRAM_BOT_TOKEN_2,
@@ -94,9 +100,9 @@ def _sma_block(sma_data: dict) -> str:
     values = [sma_data.get(key) for key, _ in SMA_LABELS]
     if all(v is not None for v in values):
         if all(a > b for a, b in zip(values, values[1:])):
-            lines.append("排列: 多頭排列 (10>60>120>720)")
+            lines.append("排列: 多頭排列 (10&gt;60&gt;120&gt;720)")
         elif all(a < b for a, b in zip(values, values[1:])):
-            lines.append("排列: 空頭排列 (10<60<120<720)")
+            lines.append("排列: 空頭排列 (10&lt;60&lt;120&lt;720)")
         else:
             lines.append("排列: 糾結")
 
@@ -182,7 +188,8 @@ def format_trading_signal_no_kd(symbol: str, price: float, recommendation: str,
 def send_trading_notification(symbol: str, price: float, recommendation: str,
                               signal_strength: str, kd_data: dict,
                               secondary_message: str | None = None,
-                              sma_data: dict = None, trigger: str = None) -> bool:
+                              sma_data: dict = None, trigger: str = None,
+                              send_secondary: bool = True) -> bool:
     """
     Send trading notification to Telegram
 
@@ -210,5 +217,6 @@ def send_trading_notification(symbol: str, price: float, recommendation: str,
     )
     return send_telegram_message(
         message,
-        secondary_message=secondary_message if secondary_message else fallback_secondary_message
+        secondary_message=secondary_message if secondary_message else fallback_secondary_message,
+        send_secondary=send_secondary,
     )

@@ -14,6 +14,7 @@ RUN mkdir -p /app/data
 
 # Set PYTHONPATH for module imports
 ENV PYTHONPATH=/app
+ENV PYTHONUNBUFFERED=1
 
 # Set Flask app module path
 ENV FLASK_APP=app.app

@@ -19,7 +19,7 @@
             padding: 20px;
         }
         .container {
-            max-width: 1000px;
+            max-width: 1400px;
             margin: 0 auto;
         }
         h1 {
@@ -60,13 +60,14 @@
         }
         .signal-table {
             width: 100%;
+            min-width: 1180px;
             background: #16213e;
             border-radius: 10px;
             overflow: hidden;
             margin-top: 20px;
         }
         .signal-table th, .signal-table td {
-            padding: 12px 15px;
+            padding: 15px 18px;
             text-align: left;
             border-bottom: 1px solid #0f3460;
         }
@@ -113,6 +114,12 @@
         .endpoints h2 {
             color: #00d4ff;
             margin-bottom: 15px;
+        }
+        .table-wrapper {
+            width: 100%;
+            overflow-x: auto;
+            margin-top: 20px;
+            border-radius: 10px;
         }
         .endpoint {
             background: #0f3460;
@@ -175,27 +182,12 @@
             </div>
         </div>
         
-        <div class="endpoints">
-            <h2>Webhook 端點</h2>
-            <div class="endpoint">
-                <strong>KD (1H/4H/1D) + SMA 數值陣列</strong>
-                <code>POST /webhook/kd-sma</code>
-                <code>[SMA10, SMA60, SMA120, SMA720, K1H, D1H, K4H, D4H, K1D, D1D, PRICE]</code>
-            </div>
-            <div class="endpoint">
-                <strong>健康檢查</strong>
-                <code>GET /api/status</code>
-            </div>
-            <div class="endpoint">
-                <strong>LINE Bot Webhook</strong>
-                <code>POST /line-webhook</code>
-            </div>
-        </div>
-        
+        <div class="table-wrapper">
         <table class="signal-table">
             <thead>
                 <tr>
                     <th>時間</th>
+                    <th>Webhook 端點</th>
                     <th>標的</th>
                     <th>價格</th>
                     <th>1H K/D</th>
@@ -209,7 +201,8 @@
             <tbody>
                 {% for signal in recent_signals %}
                 <tr>
-                    <td>{{ signal.received_at[:19] if signal.received_at else 'N/A' }}</td>
+                    <td>{{ signal.received_at|taiwan_time }}</td>
+                    <td><code>POST /webhook/kd-sma</code></td>
                     <td>{{ signal.symbol }}</td>
                     <td>{{ signal.price }}</td>
                     <td>{{ "%.2f"|format(signal.k_60m) if signal.k_60m else 'N/A' }} / {{ "%.2f"|format(signal.d_60m) if signal.d_60m else 'N/A' }}</td>
@@ -245,11 +238,12 @@
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="9" style="text-align: center; color: #888;">暫無資料</td>
+                    <td colspan="10" style="text-align: center; color: #888;">暫無資料</td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
+        </div>
         
         <div class="footer">
             <p>TradingView Signal Bot © 2026</p>

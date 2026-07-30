@@ -7,7 +7,9 @@ Also exposes a LINE Bot webhook endpoint.
 """
 
 import json
+from datetime import datetime, timezone
 from threading import Thread
+from zoneinfo import ZoneInfo
 from flask import Flask, request, jsonify, render_template, Response
 from app.config import Config
 from app.models import init_db, get_latest_signal, get_recent_signals
@@ -28,6 +30,20 @@ def create_app():
 
 
 app = create_app()
+
+
+@app.template_filter('taiwan_time')
+def format_taiwan_time(value):
+    """將資料庫時間固定轉成台灣時間（GMT+8）顯示。"""
+    if not value:
+        return 'N/A'
+    try:
+        parsed = datetime.fromisoformat(str(value).replace('Z', '+00:00'))
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=timezone.utc)
+        return parsed.astimezone(ZoneInfo('Asia/Taipei')).strftime('%Y-%m-%d %H:%M:%S')
+    except (TypeError, ValueError):
+        return str(value)[:19]
 
 
 @app.route('/')
@@ -72,6 +88,7 @@ def _async_notify(data: dict, result: dict):
     Runs after the webhook has already returned 200 to TradingView.
     """
     try:
+        message = None
         if result['should_notify']:
             message = generate_recommendation_message(
                 symbol=data.get('symbol'),
@@ -82,16 +99,17 @@ def _async_notify(data: dict, result: dict):
                 sma_data=data.get('sma', {}),
                 trigger=result.get('trigger')
             )
-            send_trading_notification(
-                symbol=data.get('symbol'),
-                price=data.get('price'),
-                recommendation=result['recommendation'],
-                signal_strength=result['signal_strength'],
-                kd_data=data.get('kd', {}),
-                secondary_message=message,
-                sma_data=data.get('sma', {}),
-                trigger=result.get('trigger')
-            )
+        send_trading_notification(
+            symbol=data.get('symbol'),
+            price=data.get('price'),
+            recommendation=result['recommendation'],
+            signal_strength=result['signal_strength'],
+            kd_data=data.get('kd', {}),
+            secondary_message=message,
+            send_secondary=result['should_notify'],
+            sma_data=data.get('sma', {}),
+            trigger=result.get('trigger')
+        )
     except Exception as e:
         print(f"[Async Notify] error: {e}")
 

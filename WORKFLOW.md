@@ -60,8 +60,8 @@ SMA加權(只調整強度,不單獨產生買賣建議):
 
 
 ## 發送通知訊息
-1. 根據後續處理結果,呼叫LLM產生建議訊息
-2. 然後推送給有在telegram的名單內的人
+1. 每一筆成功接收的 webhook 資料都要發送完整原始資料到 Primary Telegram Bot；即使建議與強度都是「無」也不能略過
+2. 只有符合交易推播條件且未被去重的資料，才呼叫 LLM 產生建議訊息並發送到 Secondary Telegram Bot
 
 ## telegram
 1. bot token:8505755301:AAHdjoMsV18SMBkA5IR0BPnwd7L7UWAEXxg
