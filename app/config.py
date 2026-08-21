@@ -28,6 +28,14 @@ class Config:
     OPENROUTER_API_URL = os.getenv('OPENROUTER_API_URL', 'https://openrouter.ai/api/v1/chat/completions')
     OPENROUTER_MODEL = os.getenv('OPENROUTER_MODEL', 'minimax/MiniMax-M2.7')
     
+    # Agnes AI (LLM)
+    AGNES_API_KEY = os.getenv('AGNES_API_KEY', '')
+    AGNES_API_URL = os.getenv('AGNES_API_URL', 'https://apihub.agnes-ai.com/v1/chat/completions')
+    AGNES_MODEL = os.getenv('AGNES_MODEL', 'mini-max-m2.5')
+    
+    # LLM Provider: 'openrouter' or 'agnes'
+    LLM_PROVIDER = os.getenv('LLM_PROVIDER', 'openrouter')
+    
     # LINE Bot
     LINE_CHANNEL_ACCESS_TOKEN = os.getenv('LINE_CHANNEL_ACCESS_TOKEN', '')
     LINE_CHANNEL_SECRET = os.getenv('LINE_CHANNEL_SECRET', '')

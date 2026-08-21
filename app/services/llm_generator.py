@@ -46,6 +46,20 @@ def generate_recommendation_message(symbol: str, price: float,
     Returns:
         str: Generated recommendation message
     """
+    # Determine which provider to use
+    provider = getattr(Config, 'LLM_PROVIDER', 'openrouter').lower()
+    
+    if provider == 'agnes':
+        return generate_agnes_message(symbol, price, recommendation, signal_strength, kd_data, sma_data, trigger)
+    else:
+        return generate_openrouter_message(symbol, price, recommendation, signal_strength, kd_data, sma_data, trigger)
+
+
+def generate_openrouter_message(symbol: str, price: float,
+                                recommendation: str, signal_strength: str,
+                                kd_data: dict, sma_data: dict = None,
+                                trigger: str = None) -> str:
+    """Generate message using OpenRouter API"""
     if not Config.OPENROUTER_API_KEY:
         # Fallback to simple template if no API key
         return generate_simple_message(symbol, price, recommendation, signal_strength, kd_data, sma_data)
@@ -120,6 +134,80 @@ KD指標數據：
 
     except Exception as e:
         print(f"[LLM] Exception: {str(e)}")
+        return generate_simple_message(symbol, price, recommendation, signal_strength, kd_data, sma_data)
+
+
+def generate_agnes_message(symbol: str, price: float,
+                           recommendation: str, signal_strength: str,
+                           kd_data: dict, sma_data: dict = None,
+                           trigger: str = None) -> str:
+    """Generate message using Agnes AI API"""
+    if not Config.AGNES_API_KEY:
+        print("[LLM Agnes] API key not set, falling back to template")
+        return generate_simple_message(symbol, price, recommendation, signal_strength, kd_data, sma_data)
+
+    # Build user prompt with KD data
+    kd_text = format_kd_for_prompt(kd_data)
+    sma_text = format_sma_for_prompt(sma_data) if sma_data else "無"
+
+    user_prompt = f"""期貨標的：{symbol}
+價格：{price if price is not None else '未提供'}
+建議方向：{recommendation}
+訊號強度：{signal_strength}
+觸發原因：{trigger or '未提供'}
+
+SMA指標數據（1H週期）：
+{sma_text}
+
+KD指標數據：
+{kd_text}
+
+請提供專業的交易建議。"""
+
+    try:
+        headers = {
+            'Authorization': f'Bearer {Config.AGNES_API_KEY}',
+            'Content-Type': 'application/json'
+        }
+
+        payload = {
+            'model': Config.AGNES_MODEL,
+            'messages': [
+                {'role': 'system', 'content': SYSTEM_PROMPT},
+                {'role': 'user', 'content': user_prompt}
+            ],
+            'max_tokens': 200,
+            'temperature': 0.7
+        }
+
+        response = requests.post(
+            Config.AGNES_API_URL,
+            headers=headers,
+            json=payload,
+            timeout=15
+        )
+
+        if response.status_code == 200:
+            result = response.json()
+            choice = result.get('choices', [{}])[0]
+            content = choice.get('message', {}).get('content', '')
+
+            if content:
+                # Strip common Markdown symbols
+                cleaned = content.strip()
+                cleaned = re.sub(r'#{1,6}\s*', '', cleaned)
+                cleaned = re.sub(r'\*\*(.+?)\*\*', r'\1', cleaned)
+                cleaned = re.sub(r'\*(.+?)\*', r'\1', cleaned)
+                cleaned = re.sub(r'~~(.+?)~~', r'\1', cleaned)
+                cleaned = re.sub(r'`(.+?)`', r'\1', cleaned)
+                cleaned = re.sub(r'```[\s\S]*?```', '', cleaned)
+                return cleaned
+
+        print(f"[LLM Agnes] API error: {response.status_code} - {response.text[:200]}")
+        return generate_simple_message(symbol, price, recommendation, signal_strength, kd_data, sma_data)
+
+    except Exception as e:
+        print(f"[LLM Agnes] Exception: {str(e)}")
         return generate_simple_message(symbol, price, recommendation, signal_strength, kd_data, sma_data)
 
 
