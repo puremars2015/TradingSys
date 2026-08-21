@@ -171,7 +171,7 @@ def handle_follow(event) -> str:
         "可用指令：\n"
         "• /status    - 查看系統狀態\n"
         "• /signal    - 最新交易訊號\n"
-        "• /list      - 最近訊號列表\n"
+        "• /list      - 顯示全部訊號記錄\n"
         "• /translate - 即時中越南翻譯\n"
         "• /help      - 顯示所有指令"
     )
@@ -228,7 +228,7 @@ def _handle_help() -> str:
         "━━━━━━━━━━━━━━━\n"
         "/status    - 查看系統狀態與最新訊號\n"
         "/signal    - 最新交易訊號詳情\n"
-        "/list      - 最近 5 筆訊號\n"
+        "/list      - 顯示全部訊號記錄\n"
         "/translate - 即時中越南翻譯\n"
         "/help      - 顯示此訊息"
     )
@@ -261,19 +261,30 @@ def _handle_signal() -> str:
 
 
 def _handle_list() -> str:
-    from app.models import get_recent_signals
-    recent = get_recent_signals(limit=5)
-    if not recent:
+    from app.models import get_all_signals
+    signals = get_all_signals()
+    if not signals:
         return "⚠️ 目前沒有任何訊號記錄。"
 
-    lines = ["📋 最近訊號（5筆）", "━━━━━━━━━━━━━━━"]
-    for i, r in enumerate(recent, 1):
+    # LINE 單則文字訊息上限為 5000 字元；超出時安全截斷，避免整則被拒。
+    LINE_TEXT_LIMIT = 4800
+
+    lines = [f"📋 全部訊號（{len(signals)}筆）", "━━━━━━━━━━━━━━━"]
+    truncated = 0
+    for i, r in enumerate(signals, 1):
         sym = r.get('symbol', '?')
         rec = r.get('recommendation', '無')
         strength = r.get('signal_strength', '無')
         ts = r.get('received_at', '')[:10]
         emoji = "🟢" if rec == "做多" else ("🔴" if rec == "做空" else "⚪")
-        lines.append(f"{i}. {emoji} {sym} | {rec}（{strength}）| {ts}")
+        line = f"{i}. {emoji} {sym} | {rec}（{strength}）| {ts}"
+        if len("\n".join(lines)) + len(line) + 1 > LINE_TEXT_LIMIT:
+            truncated = len(signals) - (i - 1)
+            break
+        lines.append(line)
+
+    if truncated:
+        lines.append(f"⋯ 其餘 {truncated} 筆因 LINE 訊息長度上限未顯示")
 
     return "\n".join(lines)
 

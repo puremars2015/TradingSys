@@ -11,10 +11,22 @@
 
 ## 路徑
 
-- **專案根目錄**:`C:\Users\purem\OneDrive\文件\TradingSys`
+- **專案根目錄**(本機):`/home/puremars/TradingSys`(原本是 `C:\Users\purem\OneDrive\文件\TradingSys`)
 - **Flask app**:`./app/`(`app.py`、`config.py`、`models.py`、`services/`、`templates/`、`data/`)
+- **Telegram 訂閱機制**:`./app/telegram_polling.py`(Long-poll 副 bot)、`./app/telegram_subscribers.py`(訂閱者 DB)(git 未追蹤)
 - **SQLite DB**:在 `./app/data/`(用 volume 掛進容器做持久化)
 - **對外網域**:`trading.thetainformation.com`
+
+## 雙 Telegram Bot 架構
+
+用 **兩個** 獨立的 Telegram bot(各一組 token+user_id):
+
+| Bot | 變數 | 用途 |
+|-----|------|------|
+| 主 bot | `TELEGRAM_BOT_TOKEN` + `TELEGRAM_USER_ID` | 推**完整**訊號(含 KD 明細 + LLM 建議),HTML parse_mode |
+| 副 bot | `TELEGRAM_BOT_TOKEN_2` + `TELEGRAM_USER_ID_2` | 廣播**精簡測試訊號**(無 KD 明細 + 測試警告)給**所有訂閱者**;HTML 內容先 `html.escape` 跳脫再送 |
+
+副 bot 是**訂閱制**:使用者對副 bot 發 `/start` 訂閱、`/stop` 退訂(見 `telegram_polling.py` / `telegram_subscribers.py`,git 未追蹤)。訂閱者存在 SQLite `telegram_subscribers` 表(`chat_id` 為主鍵)。所有推播都加前綴 `[此為測試功能,不可用於實際投資]`。
 
 ## 服務 / Port
 
@@ -88,10 +100,12 @@ curl -X POST http://localhost:8081/webhook/kd-sma \
 | 變數 | 用途 |
 |------|------|
 | `DEFAULT_SYMBOL` | 商品代號,payload 不帶所以固定在這(預設 `TXF1!`) |
-| `TELEGRAM_BOT_TOKEN` | 推播用的 bot token |
-| `TELEGRAM_USER_ID` | 接收推播的 user id(目前是 `732924840`) |
+| `TELEGRAM_BOT_TOKEN` | 主 bot token(推完整訊號) |
+| `TELEGRAM_USER_ID` | 主 bot 接收者 user id(目前是 `732924840`) |
+| `TELEGRAM_BOT_TOKEN_2` | 副 bot token(訂閱制測試訊號,可留空 = 停用副 bot) |
+| `TELEGRAM_USER_ID_2` | 副 bot 的固定接收者(遷移時自動加入訂閱表) |
 | `OPENROUTER_API_KEY` | LLM API key |
-| `OPENROUTER_MODEL` | 預設 `minimax/m2.7b` |
+| `OPENROUTER_MODEL` | 預設 `minimax/MiniMax-M2.7`(OpenRouter) |
 | `CLOUDFLARE_TUNNEL_TOKEN` | 對外 tunnel token |
 | `SECRET_KEY` | Flask session 簽章 |
 
@@ -104,6 +118,9 @@ curl -X POST http://localhost:8081/webhook/kd-sma \
 - 資料表還留著 `k_5m`/`k_30m` 等舊欄位給歷史資料,新訊號不寫入;`alert_group` 現在固定是 `swing`
 - 1H 的 K/D 存在 `k_60m`/`d_60m` 欄位(同一組指標,只是舊命名)
 - LLM 建議可能會被 OpenRouter rate limit,被擋時 Telegram 推播會延遲或失敗
+- **去重**:相同(symbol、alert_group、recommendation、signal_strength)在 60 秒內出現會被視為重複,不推播(`has_recent_duplicate_notification`,response 的 `deduped` 欄位會是 `True`)
+- 副 bot 的 `/start`、`/stop` 是透過 **Long-poll `getUpdates`** 收的(`telegram_polling.py`),不是 webhook,不受 cloudflared tunnel 影響
+- 副 bot 的 HTML 內容在送到 Telegram 前會 `html.escape`(因為 AI 可能產出 `SMA10<60` 這類比較符,會讓 Telegram HTML parse 拒收)
 
 ## 相關文件
 

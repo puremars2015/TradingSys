@@ -7,6 +7,9 @@ Sends trading recommendations to users via Telegram bot.
 import html
 import requests
 from app.config import Config
+from app.telegram_subscribers import get_subscriber_chat_ids
+
+TEST_WARNING_PREFIX = '[此為測試功能,不可用於實際投資]\n\n'
 
 
 def _send_telegram_message_via_bot(message: str, bot_token: str, user_id: str, label: str = 'Telegram') -> bool:
@@ -22,6 +25,7 @@ def _send_telegram_message_via_bot(message: str, bot_token: str, user_id: str, l
     url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
     # AI 內容是純文字，但 Telegram 使用 HTML parse mode。若 AI 回傳
     # 「SMA10<60」等比較符號，未跳脫會讓 Telegram 拒收整則訊息。
+    message = TEST_WARNING_PREFIX + message
     safe_message = html.escape(message, quote=False) if label == 'Telegram-Secondary' else message
     payload = {
         'chat_id': user_id,
@@ -65,14 +69,14 @@ def send_telegram_message(message: str, secondary_message: str | None = None,
     )
     results.append(primary_result)
 
-    if send_secondary and Config.TELEGRAM_BOT_TOKEN_2 and Config.TELEGRAM_USER_ID_2:
-        secondary_result = _send_telegram_message_via_bot(
-            secondary_message if secondary_message else message,
-            Config.TELEGRAM_BOT_TOKEN_2,
-            Config.TELEGRAM_USER_ID_2,
-            'Telegram-Secondary'
-        )
-        results.append(secondary_result)
+    if send_secondary and Config.TELEGRAM_BOT_TOKEN_2:
+        secondary_message = secondary_message if secondary_message else message
+        for chat_id in get_subscriber_chat_ids():
+            secondary_result = _send_telegram_message_via_bot(
+                secondary_message, Config.TELEGRAM_BOT_TOKEN_2, chat_id,
+                'Telegram-Secondary'
+            )
+            results.append(secondary_result)
 
     return any(results)
 

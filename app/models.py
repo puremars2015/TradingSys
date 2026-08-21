@@ -242,3 +242,22 @@ def get_recent_signals(symbol: str = None, limit: int = 10) -> list:
     conn.close()
 
     return [dict(row) for row in rows]
+
+
+def get_all_signals(symbol: str = None) -> list:
+    """Get ALL signal records (no limit), newest first."""
+    conn = get_db()
+    cursor = conn.cursor()
+
+    if symbol:
+        cursor.execute(
+            'SELECT * FROM trading_signals WHERE symbol = ? ORDER BY id DESC',
+            (symbol,)
+        )
+    else:
+        cursor.execute('SELECT * FROM trading_signals ORDER BY id DESC')
+
+    rows = cursor.fetchall()
+    conn.close()
+
+    return [dict(row) for row in rows]

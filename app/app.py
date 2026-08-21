@@ -15,6 +15,7 @@ from app.config import Config
 from app.models import init_db, get_latest_signal, get_recent_signals
 from app.services.signal_analyzer import parse_payload, process_signal
 from app.services.telegram_bot import send_trading_notification
+from app.telegram_polling import start_polling
 from app.services.llm_generator import generate_recommendation_message
 
 
@@ -25,6 +26,7 @@ def create_app():
     
     # Initialize database on startup
     init_db()
+    start_polling()
     
     return app
 
