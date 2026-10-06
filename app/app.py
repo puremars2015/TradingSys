@@ -12,10 +12,13 @@ from threading import Thread
 from zoneinfo import ZoneInfo
 from flask import Flask, request, jsonify, render_template, Response
 from app.config import Config
-from app.models import init_db, get_latest_signal, get_signals_count, get_signals_page
+from app.models import (
+    init_db, get_latest_signal, get_signals_count, get_signals_page, get_foreign_futures
+)
 from app.services.signal_analyzer import parse_payload, process_signal
 from app.services.telegram_bot import send_trading_notification
 from app.telegram_polling import start_polling
+from app.foreign_futures_scheduler import start_scheduler
 from app.services.llm_generator import generate_recommendation_message
 
 
@@ -27,6 +30,7 @@ def create_app():
     # Initialize database on startup
     init_db()
     start_polling()
+    start_scheduler()
     
     return app
 
@@ -94,6 +98,26 @@ def status():
         'service': 'TradingView Signal Bot',
         'latest_signal': latest is not None,
         'database': Config.DATABASE_PATH
+    })
+
+
+@app.route('/foreign-futures')
+def foreign_futures_page():
+    """外資期貨未平倉多空單折線圖。"""
+    return render_template('foreign_futures.html', commodity=Config.FOREIGN_FUTURES_COMMODITY)
+
+
+@app.route('/api/foreign-futures')
+def foreign_futures_api():
+    """外資期貨未平倉資料（由舊到新）。?days=N 取最近 N 個日曆天，0 或不給表示全部。"""
+    try:
+        days = max(0, int(request.args.get('days', 0)))
+    except ValueError:
+        days = 0
+    commodity = Config.FOREIGN_FUTURES_COMMODITY
+    return jsonify({
+        'commodity': commodity,
+        'rows': get_foreign_futures(commodity, days or None),
     })
 
 

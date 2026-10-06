@@ -32,6 +32,8 @@
 | `/webhook/kd-sma` | POST | 訊號端點,吃數值陣列 |
 | `/line-webhook` | POST | LINE Bot |
 | `/api/status` | GET | 健康檢查 |
+| `/foreign-futures` | GET | 外資期貨留倉折線圖 |
+| `/api/foreign-futures` | GET | 外資期貨留倉資料 JSON(`?days=N`) |
 
 ### Payload 格式
 

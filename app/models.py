@@ -56,6 +56,22 @@ def init_db():
     if 'sma720' not in columns:
         conn.execute("ALTER TABLE trading_signals ADD COLUMN sma720 REAL")
 
+    # 外資期貨未平倉（每日一筆，來源：期交所三大法人 - 區分各期貨契約）
+    conn.execute('''
+        CREATE TABLE IF NOT EXISTS foreign_futures_oi (
+            trade_date TEXT NOT NULL,
+            commodity TEXT NOT NULL,
+            long_oi INTEGER,
+            long_amount INTEGER,
+            short_oi INTEGER,
+            short_amount INTEGER,
+            net_oi INTEGER,
+            net_amount INTEGER,
+            updated_at TEXT NOT NULL,
+            PRIMARY KEY (trade_date, commodity)
+        )
+    ''')
+
     conn.commit()
     conn.close()
 
@@ -300,5 +316,63 @@ def get_signals_page(symbol: str = None, page: int = 1, per_page: int = 50) -> l
         )
 
     rows = cursor.fetchall()
+    conn.close()
+    return [dict(row) for row in rows]
+
+
+def upsert_foreign_futures(rows: list) -> int:
+    """寫入外資期貨未平倉資料；同一天同商品重抓時覆寫。回傳寫入筆數。"""
+    if not rows:
+        return 0
+    now = datetime.now().isoformat()
+    conn = get_db()
+    conn.executemany('''
+        INSERT INTO foreign_futures_oi (
+            trade_date, commodity, long_oi, long_amount, short_oi, short_amount,
+            net_oi, net_amount, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(trade_date, commodity) DO UPDATE SET
+            long_oi = excluded.long_oi,
+            long_amount = excluded.long_amount,
+            short_oi = excluded.short_oi,
+            short_amount = excluded.short_amount,
+            net_oi = excluded.net_oi,
+            net_amount = excluded.net_amount,
+            updated_at = excluded.updated_at
+    ''', [
+        (r['trade_date'], r['commodity'], r.get('long_oi'), r.get('long_amount'),
+         r.get('short_oi'), r.get('short_amount'), r.get('net_oi'), r.get('net_amount'), now)
+        for r in rows
+    ])
+    conn.commit()
+    conn.close()
+    return len(rows)
+
+
+def get_latest_foreign_futures_date(commodity: str) -> str | None:
+    """資料庫裡該商品最新一筆的交易日（YYYY-MM-DD），沒有資料回 None。"""
+    conn = get_db()
+    row = conn.execute(
+        'SELECT MAX(trade_date) FROM foreign_futures_oi WHERE commodity = ?', (commodity,)
+    ).fetchone()
+    conn.close()
+    return row[0] if row else None
+
+
+def get_foreign_futures(commodity: str, days: int | None = None) -> list:
+    """取外資期貨未平倉資料，依日期由舊到新；days 為往回幾個日曆天，None 表示全部。"""
+    conn = get_db()
+    if days:
+        since = (datetime.now() - timedelta(days=days)).date().isoformat()
+        rows = conn.execute(
+            'SELECT * FROM foreign_futures_oi WHERE commodity = ? AND trade_date >= ? '
+            'ORDER BY trade_date',
+            (commodity, since)
+        ).fetchall()
+    else:
+        rows = conn.execute(
+            'SELECT * FROM foreign_futures_oi WHERE commodity = ? ORDER BY trade_date',
+            (commodity,)
+        ).fetchall()
     conn.close()
     return [dict(row) for row in rows]

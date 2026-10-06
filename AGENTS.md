@@ -43,6 +43,8 @@
 | `/webhook/kd-sma` | POST | 唯一的訊號端點,吃數值陣列 |
 | `/line-webhook` | POST | LINE Bot |
 | `/api/status` | GET | 健康檢查 |
+| `/foreign-futures` | GET | 外資期貨留倉(多單/空單/淨額)折線圖 |
+| `/api/foreign-futures` | GET | 外資期貨留倉資料 JSON(`?days=N`) |
 | `/` | GET | 狀態頁 |
 
 Payload 格式(裸陣列,也接受 `{"values":[...]}`):
@@ -108,6 +110,15 @@ curl -X POST http://localhost:8081/webhook/kd-sma \
 | `OPENROUTER_MODEL` | 預設 `minimax/MiniMax-M2.7`(OpenRouter) |
 | `CLOUDFLARE_TUNNEL_TOKEN` | 對外 tunnel token |
 | `SECRET_KEY` | Flask session 簽章 |
+| `FOREIGN_FUTURES_ENABLED` | 是否啟動外資期貨每日同步(預設 `true`) |
+| `FOREIGN_FUTURES_COMMODITY` | 抓哪個期貨商品的外資留倉(預設 `TXF` 台指期) |
+
+## 外資期貨留倉
+
+- 抓取:`app/services/foreign_futures.py`,來源是期交所「三大法人 - 區分各期貨契約」CSV 下載端點 `futContractsDateDown`(Big5),只留「外資及陸資」那列的未平倉口數/金額
+- 排程:`app/foreign_futures_scheduler.py` 背景執行緒。啟動先同步一次(DB 空的會往回補一年),之後平日台北時間 15:00–21:00 每 30 分鐘檢查,今天的資料進來就停
+- 資料表:`foreign_futures_oi`(`trade_date` + `commodity` 為主鍵,重抓會覆寫)
+- 手動補資料:`docker compose exec flask python -m app.services.foreign_futures --backfill 365`
 
 ## 已知的坑
 

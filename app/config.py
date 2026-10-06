@@ -36,6 +36,10 @@ class Config:
     # LLM Provider: 'openrouter' or 'agnes'
     LLM_PROVIDER = os.getenv('LLM_PROVIDER', 'openrouter')
     
+    # 外資期貨未平倉（期交所）
+    FOREIGN_FUTURES_ENABLED = os.getenv('FOREIGN_FUTURES_ENABLED', 'true').lower() == 'true'
+    FOREIGN_FUTURES_COMMODITY = os.getenv('FOREIGN_FUTURES_COMMODITY', 'TXF')
+
     # LINE Bot
     LINE_CHANNEL_ACCESS_TOKEN = os.getenv('LINE_CHANNEL_ACCESS_TOKEN', '')
     LINE_CHANNEL_SECRET = os.getenv('LINE_CHANNEL_SECRET', '')
