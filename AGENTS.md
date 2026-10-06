@@ -45,6 +45,8 @@
 | `/api/status` | GET | 健康檢查 |
 | `/foreign-futures` | GET | 外資期貨留倉(多單/空單/淨額)折線圖 |
 | `/api/foreign-futures` | GET | 外資期貨留倉資料 JSON(`?days=N`) |
+| `/taiex` | GET | 加權指數(收盤 + MA20/MA60)與每日成交金額看板 |
+| `/api/taiex` | GET | 加權指數每日資料 JSON(`?days=N`) |
 | `/` | GET | 狀態頁 |
 
 Payload 格式(裸陣列,也接受 `{"values":[...]}`):
@@ -112,11 +114,23 @@ curl -X POST http://localhost:8081/webhook/kd-sma \
 | `SECRET_KEY` | Flask session 簽章 |
 | `FOREIGN_FUTURES_ENABLED` | 是否啟動外資期貨每日同步(預設 `true`) |
 | `FOREIGN_FUTURES_COMMODITY` | 抓哪個期貨商品的外資留倉(預設 `TXF` 台指期) |
+| `TAIEX_ENABLED` | 是否啟動加權指數每日同步(預設 `true`) |
 
-## 外資期貨留倉
+## 每日行情資料(外資期貨留倉、加權指數)
+
+- 排程:`app/market_data_scheduler.py` 一條背景執行緒跑所有每日任務。啟動先各同步一次(DB 空的會往回補一年),之後平日台北時間「公布時間–21:00」每 30 分鐘檢查,今天的資料進來就停(加權指數 14:00 起、外資期貨 15:00 起)
+- 圖表:`app/static/charts.js` + `charts.css` 是兩個看板共用的 SVG 圖表工具(無外部函式庫)
+- **證交所對連續請求很敏感**,太快會被暫時封鎖 IP;加權指數補資料逐月抓、每次間隔 3 秒
+
+### 加權指數(`/taiex`)
+
+- 抓取:`app/services/taiex.py`,來源是證交所「市場成交資訊」`FMTQIK`(JSON,一次一個月,日期為民國年),含收盤指數、漲跌點數、成交金額/股數/筆數
+- 資料表:`taiex_daily`(`trade_date` 為主鍵,重抓會覆寫);MA20/MA60、5 日均量在前端計算
+- 手動補資料:`docker compose exec flask python -m app.services.taiex --backfill 365`
+
+### 外資期貨留倉(`/foreign-futures`)
 
 - 抓取:`app/services/foreign_futures.py`,來源是期交所「三大法人 - 區分各期貨契約」CSV 下載端點 `futContractsDateDown`(Big5),只留「外資及陸資」那列的未平倉口數/金額
-- 排程:`app/foreign_futures_scheduler.py` 背景執行緒。啟動先同步一次(DB 空的會往回補一年),之後平日台北時間 15:00–21:00 每 30 分鐘檢查,今天的資料進來就停
 - 資料表:`foreign_futures_oi`(`trade_date` + `commodity` 為主鍵,重抓會覆寫)
 - 手動補資料:`docker compose exec flask python -m app.services.foreign_futures --backfill 365`
 

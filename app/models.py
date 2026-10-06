@@ -72,6 +72,19 @@ def init_db():
         )
     ''')
 
+    # 加權指數與每日成交量（來源：證交所 FMTQIK）
+    conn.execute('''
+        CREATE TABLE IF NOT EXISTS taiex_daily (
+            trade_date TEXT PRIMARY KEY,
+            close REAL,
+            change REAL,
+            turnover INTEGER,
+            volume_shares INTEGER,
+            transactions INTEGER,
+            updated_at TEXT NOT NULL
+        )
+    ''')
+
     conn.commit()
     conn.close()
 
@@ -374,5 +387,54 @@ def get_foreign_futures(commodity: str, days: int | None = None) -> list:
             'SELECT * FROM foreign_futures_oi WHERE commodity = ? ORDER BY trade_date',
             (commodity,)
         ).fetchall()
+    conn.close()
+    return [dict(row) for row in rows]
+
+
+def upsert_taiex(rows: list) -> int:
+    """寫入加權指數每日資料；同一天重抓時覆寫。回傳寫入筆數。"""
+    if not rows:
+        return 0
+    now = datetime.now().isoformat()
+    conn = get_db()
+    conn.executemany('''
+        INSERT INTO taiex_daily (
+            trade_date, close, change, turnover, volume_shares, transactions, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(trade_date) DO UPDATE SET
+            close = excluded.close,
+            change = excluded.change,
+            turnover = excluded.turnover,
+            volume_shares = excluded.volume_shares,
+            transactions = excluded.transactions,
+            updated_at = excluded.updated_at
+    ''', [
+        (r['trade_date'], r.get('close'), r.get('change'), r.get('turnover'),
+         r.get('volume_shares'), r.get('transactions'), now)
+        for r in rows
+    ])
+    conn.commit()
+    conn.close()
+    return len(rows)
+
+
+def get_latest_taiex_date() -> str | None:
+    """資料庫裡加權指數最新一筆的交易日（YYYY-MM-DD），沒有資料回 None。"""
+    conn = get_db()
+    row = conn.execute('SELECT MAX(trade_date) FROM taiex_daily').fetchone()
+    conn.close()
+    return row[0] if row else None
+
+
+def get_taiex(days: int | None = None) -> list:
+    """取加權指數每日資料，依日期由舊到新；days 為往回幾個日曆天，None 表示全部。"""
+    conn = get_db()
+    if days:
+        since = (datetime.now() - timedelta(days=days)).date().isoformat()
+        rows = conn.execute(
+            'SELECT * FROM taiex_daily WHERE trade_date >= ? ORDER BY trade_date', (since,)
+        ).fetchall()
+    else:
+        rows = conn.execute('SELECT * FROM taiex_daily ORDER BY trade_date').fetchall()
     conn.close()
     return [dict(row) for row in rows]

@@ -34,6 +34,8 @@
 | `/api/status` | GET | 健康檢查 |
 | `/foreign-futures` | GET | 外資期貨留倉折線圖 |
 | `/api/foreign-futures` | GET | 外資期貨留倉資料 JSON(`?days=N`) |
+| `/taiex` | GET | 加權指數(收盤 + MA20/MA60)與每日成交金額看板 |
+| `/api/taiex` | GET | 加權指數每日資料 JSON(`?days=N`) |
 
 ### Payload 格式
 

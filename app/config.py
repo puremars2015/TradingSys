@@ -40,6 +40,9 @@ class Config:
     FOREIGN_FUTURES_ENABLED = os.getenv('FOREIGN_FUTURES_ENABLED', 'true').lower() == 'true'
     FOREIGN_FUTURES_COMMODITY = os.getenv('FOREIGN_FUTURES_COMMODITY', 'TXF')
 
+    # 加權指數與每日成交量（證交所）
+    TAIEX_ENABLED = os.getenv('TAIEX_ENABLED', 'true').lower() == 'true'
+
     # LINE Bot
     LINE_CHANNEL_ACCESS_TOKEN = os.getenv('LINE_CHANNEL_ACCESS_TOKEN', '')
     LINE_CHANNEL_SECRET = os.getenv('LINE_CHANNEL_SECRET', '')

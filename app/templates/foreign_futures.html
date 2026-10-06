@@ -5,98 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>外資期貨留倉</title>
     <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
-    <style>
-        :root {
-            --page: #1a1a2e;
-            --surface-1: #16213e;
-            --surface-2: #0f3460;
-            --text-primary: #eeeeee;
-            --text-secondary: #b8bccb;
-            --text-muted: #8a90a6;
-            --accent: #00d4ff;
-            --grid: rgba(255, 255, 255, 0.08);
-            --axis: rgba(255, 255, 255, 0.25);
-            /* 驗證過的深色調色盤（surface #16213e）：多單 = slot 1、空單 = slot 2 */
-            --series-long: #3987e5;
-            --series-short: #d95926;
-            --series-net: #199e70;
-        }
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            background: var(--page);
-            color: var(--text-primary);
-            min-height: 100vh;
-            padding: 20px 16px;
-        }
-        .container { max-width: 1400px; margin: 0 auto; }
-        .topbar {
-            display: flex; align-items: baseline; justify-content: space-between;
-            flex-wrap: wrap; gap: 8px; margin-bottom: 20px;
-        }
-        h1 { color: var(--accent); font-size: 24px; }
-        .topbar a { color: var(--accent); text-decoration: none; font-size: 14px; }
-        .subtitle { color: var(--text-muted); font-size: 13px; margin-top: 4px; }
-
-        .filters { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px; }
-        .filters button {
-            background: var(--surface-1); color: var(--text-secondary);
-            border: 1px solid var(--surface-2); border-radius: 6px;
-            padding: 6px 14px; font-size: 13px; cursor: pointer;
-        }
-        .filters button:hover { background: var(--surface-2); }
-        .filters button[aria-pressed="true"] {
-            background: var(--surface-2); color: var(--text-primary);
-            border-color: var(--accent); font-weight: 600;
-        }
-
-        .tiles {
-            display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-            gap: 12px; margin-bottom: 16px;
-        }
-        .tile { background: var(--surface-1); border-radius: 10px; padding: 14px 16px; }
-        .tile .label { color: var(--text-muted); font-size: 12px; display: flex; align-items: center; gap: 6px; }
-        .tile .value { font-size: 24px; font-weight: 700; margin-top: 6px; font-variant-numeric: tabular-nums; }
-        .tile .delta { color: var(--text-secondary); font-size: 12px; margin-top: 2px; font-variant-numeric: tabular-nums; }
-        .key { display: inline-block; width: 14px; height: 2px; border-radius: 1px; }
-
-        .card { background: var(--surface-1); border-radius: 10px; padding: 16px; margin-bottom: 16px; position: relative; }
-        .card-head { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
-        .card h2 { font-size: 16px; color: var(--text-primary); }
-        .legend { display: flex; gap: 16px; font-size: 13px; color: var(--text-secondary); }
-        .legend span { display: inline-flex; align-items: center; gap: 6px; }
-        .chart { width: 100%; height: 300px; display: block; touch-action: pan-y; }
-        .chart.net { height: 220px; }
-        .chart text { fill: var(--text-muted); font-size: 11px; font-variant-numeric: tabular-nums; }
-        .chart .grid { stroke: var(--grid); stroke-width: 1; }
-        .chart .zero { stroke: var(--axis); stroke-width: 1; }
-        .chart .line { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
-        .chart .crosshair { stroke: var(--text-muted); stroke-width: 1; }
-        .chart .direct-label { font-size: 12px; font-weight: 600; fill: var(--text-secondary); }
-
-        .tooltip {
-            position: absolute; pointer-events: none; display: none;
-            background: var(--page); border: 1px solid var(--surface-2); border-radius: 8px;
-            padding: 8px 10px; font-size: 12px; min-width: 150px; z-index: 5;
-            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
-        }
-        .tooltip .date { color: var(--text-muted); margin-bottom: 4px; }
-        .tooltip .row { display: flex; align-items: center; gap: 8px; margin-top: 2px; }
-        .tooltip .row strong { color: var(--text-primary); font-variant-numeric: tabular-nums; margin-left: auto; }
-        .tooltip .row span.name { color: var(--text-secondary); }
-
-        .empty { color: var(--text-muted); text-align: center; padding: 60px 0; line-height: 1.8; }
-        .empty code { background: var(--page); padding: 2px 6px; border-radius: 4px; }
-
-        details { background: var(--surface-1); border-radius: 10px; padding: 12px 16px; }
-        summary { cursor: pointer; color: var(--text-secondary); font-size: 14px; }
-        .table-wrapper { overflow-x: auto; max-height: 420px; overflow-y: auto; margin-top: 10px; }
-        table { width: 100%; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
-        th, td { padding: 8px 10px; text-align: right; border-bottom: 1px solid var(--surface-2); white-space: nowrap; }
-        th:first-child, td:first-child { text-align: left; }
-        th { color: var(--accent); position: sticky; top: 0; background: var(--surface-1); }
-        .footer { text-align: center; color: var(--text-muted); font-size: 12px; margin-top: 20px; }
-    </style>
+    <link rel="stylesheet" href="/static/charts.css">
 </head>
 <body>
 <div class="container">
@@ -105,7 +14,10 @@
             <h1>外資期貨留倉</h1>
             <div class="subtitle">外資及陸資 · {{ commodity }} 未平倉口數 · 資料來源：臺灣期貨交易所 三大法人</div>
         </div>
-        <a href="/">← 回訊號儀表板</a>
+        <nav class="topnav">
+            <a href="/">訊號儀表板</a>
+            <a href="/taiex">加權指數</a>
+        </nav>
     </div>
 
     <div class="filters" role="group" aria-label="時間範圍">
@@ -122,8 +34,8 @@
         <div class="card-head">
             <h2>多單 vs 空單（口）</h2>
             <div class="legend">
-                <span><i class="key" style="background: var(--series-long)"></i>多單</span>
-                <span><i class="key" style="background: var(--series-short)"></i>空單</span>
+                <span><i class="key" style="background: var(--series-1)"></i>多單</span>
+                <span><i class="key" style="background: var(--series-2)"></i>空單</span>
             </div>
         </div>
         <svg class="chart" id="chart-oi" role="img" aria-label="外資期貨多單與空單未平倉口數折線圖"></svg>
@@ -154,261 +66,48 @@
     <div class="footer">每個交易日 15:00 後自動抓取期交所資料</div>
 </div>
 
+<script src="/static/charts.js"></script>
 <script>
 (function () {
-    const SVG_NS = 'http://www.w3.org/2000/svg';
-    const SERIES_OI = [
-        { key: 'long_oi', name: '多單', color: 'var(--series-long)' },
-        { key: 'short_oi', name: '空單', color: 'var(--series-short)' },
-    ];
-    const SERIES_NET = [{ key: 'net_oi', name: '淨額', color: 'var(--series-net)' }];
-    const fmt = new Intl.NumberFormat('zh-TW');
-    const signed = v => (v > 0 ? '+' : '') + fmt.format(v);
-
+    const C = window.MarketCharts;
+    const LONG = 'var(--series-1)', SHORT = 'var(--series-2)', NET = 'var(--series-3)';
     let allRows = [];
-    let rows = [];
-    let days = 90;
 
-    function el(tag, attrs, parent) {
-        const node = document.createElementNS(SVG_NS, tag);
-        for (const [k, v] of Object.entries(attrs || {})) node.setAttribute(k, v);
-        if (parent) parent.appendChild(node);
-        return node;
-    }
-
-    function niceTicks(min, max, count) {
-        if (min === max) { min -= 1; max += 1; }
-        const raw = (max - min) / count;
-        const mag = Math.pow(10, Math.floor(Math.log10(raw)));
-        const step = [1, 2, 2.5, 5, 10].map(m => m * mag).find(s => s >= raw);
-        const ticks = [];
-        for (let t = Math.floor(min / step) * step; t <= max + step * 0.001; t += step) ticks.push(t);
-        if (ticks[ticks.length - 1] < max) ticks.push(ticks[ticks.length - 1] + step);
-        return ticks;
-    }
-
-    function shortNum(v) {
-        const a = Math.abs(v);
-        if (a >= 10000) return (v / 10000).toFixed(a >= 100000 ? 0 : 1).replace(/\.0$/, '') + '萬';
-        return fmt.format(v);
-    }
-
-    function drawChart(svg, tip, series, opts) {
-        svg.textContent = '';
-        const width = svg.clientWidth || 800;
-        const height = svg.clientHeight || 300;
-        svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
-        const m = { top: 12, right: 52, bottom: 26, left: 52 };
-        const w = width - m.left - m.right;
-        const h = height - m.top - m.bottom;
-        const n = rows.length;
-
-        const values = rows.flatMap(r => series.map(s => r[s.key]));
-        let lo = Math.min(...values), hi = Math.max(...values);
-        if (opts.includeZero) { lo = Math.min(lo, 0); hi = Math.max(hi, 0); }
-        const ticks = niceTicks(lo, hi, 5);
-        const yMin = ticks[0], yMax = ticks[ticks.length - 1];
-        const x = i => m.left + (n === 1 ? w / 2 : (i / (n - 1)) * w);
-        const y = v => m.top + h - ((v - yMin) / (yMax - yMin)) * h;
-
-        for (const t of ticks) {
-            el('line', { class: t === 0 && opts.includeZero ? 'zero' : 'grid', x1: m.left, x2: m.left + w, y1: y(t), y2: y(t) }, svg);
-            const label = el('text', { x: m.left - 8, y: y(t) + 4, 'text-anchor': 'end' }, svg);
-            label.textContent = shortNum(t);
+    function render(days) {
+        const rows = C.filterByDays(allRows, days);
+        if (!rows.length) {
+            document.getElementById('tiles').textContent = '';
+            return C.showEmpty(['chart-oi', 'chart-net'], 'python -m app.services.foreign_futures --backfill 365');
         }
-
-        const xTickCount = Math.max(2, Math.min(n, Math.floor(w / 90)));
-        for (let k = 0; k < xTickCount; k++) {
-            const i = Math.round((k / (xTickCount - 1 || 1)) * (n - 1));
-            const label = el('text', {
-                x: x(i), y: m.top + h + 18,
-                'text-anchor': k === 0 ? 'start' : (k === xTickCount - 1 ? 'end' : 'middle'),
-            }, svg);
-            label.textContent = rows[i].trade_date.slice(5).replace('-', '/');
-        }
-
-        for (const s of series) {
-            const d = rows.map((r, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(r[s.key]).toFixed(1)}`).join('');
-            el('path', { class: 'line', d, stroke: s.color }, svg);
-            // 只在最新一點標數值，不在每個點都標
-            const last = rows[n - 1][s.key];
-            el('circle', { cx: x(n - 1), cy: y(last), r: 4, fill: s.color, stroke: 'var(--surface-1)', 'stroke-width': 2 }, svg);
-            const label = el('text', { class: 'direct-label', x: x(n - 1) + 8, y: y(last) + 4 }, svg);
-            label.textContent = shortNum(last);
-        }
-
-        const cross = el('line', { class: 'crosshair', y1: m.top, y2: m.top + h, visibility: 'hidden' }, svg);
-        const dots = series.map(s => el('circle', { r: 4, fill: s.color, stroke: 'var(--surface-1)', 'stroke-width': 2, visibility: 'hidden' }, svg));
-        const hit = el('rect', { x: m.left, y: m.top, width: w, height: h, fill: 'transparent' }, svg);
-
-        function show(evt) {
-            const rect = svg.getBoundingClientRect();
-            const px = (evt.clientX - rect.left) * (width / rect.width);
-            const i = Math.max(0, Math.min(n - 1, Math.round(((px - m.left) / w) * (n - 1))));
-            const r = rows[i];
-            cross.setAttribute('x1', x(i)); cross.setAttribute('x2', x(i));
-            cross.setAttribute('visibility', 'visible');
-            series.forEach((s, j) => {
-                dots[j].setAttribute('cx', x(i)); dots[j].setAttribute('cy', y(r[s.key]));
-                dots[j].setAttribute('visibility', 'visible');
-            });
-
-            tip.textContent = '';
-            const date = document.createElement('div');
-            date.className = 'date';
-            date.textContent = r.trade_date;
-            tip.appendChild(date);
-            for (const s of series) tip.appendChild(tipRow(s, opts.signed ? signed(r[s.key]) : fmt.format(r[s.key])));
-            if (opts.withNet) tip.appendChild(tipRow({ name: '淨額', color: 'var(--series-net)' }, signed(r.net_oi)));
-
-            tip.style.display = 'block';
-            const card = svg.parentElement.getBoundingClientRect();
-            const left = evt.clientX - card.left + 14;
-            tip.style.left = Math.min(left, card.width - tip.offsetWidth - 8) + 'px';
-            tip.style.top = (rect.top - card.top + 8) + 'px';
-        }
-        function hide() {
-            tip.style.display = 'none';
-            cross.setAttribute('visibility', 'hidden');
-            dots.forEach(d => d.setAttribute('visibility', 'hidden'));
-        }
-        hit.addEventListener('pointermove', show);
-        hit.addEventListener('pointerdown', show);
-        hit.addEventListener('pointerleave', hide);
+        const last = rows[rows.length - 1], prev = rows[rows.length - 2];
+        const delta = key => prev ? `較前一日 ${C.signed(last[key] - prev[key])} 口` : '—';
+        C.renderTiles(document.getElementById('tiles'), [
+            { label: '多單', color: LONG, value: C.fmt.format(last.long_oi), delta: delta('long_oi') },
+            { label: '空單', color: SHORT, value: C.fmt.format(last.short_oi), delta: delta('short_oi') },
+            { label: '淨額', color: NET, value: C.signed(last.net_oi), delta: delta('net_oi') },
+            { label: '最新交易日', value: last.trade_date, small: true },
+        ]);
+        C.drawChart(document.getElementById('chart-oi'), document.getElementById('tip-oi'), rows, [
+            { key: 'long_oi', name: '多單', color: LONG },
+            { key: 'short_oi', name: '空單', color: SHORT },
+        ], { extraTip: [{ name: '淨額', color: NET, value: r => C.signed(r.net_oi) }] });
+        C.drawChart(document.getElementById('chart-net'), document.getElementById('tip-net'), rows, [
+            { key: 'net_oi', name: '淨額', color: NET },
+        ], { includeZero: true, valueText: v => C.signed(v) });
+        C.renderTable(document.getElementById('table-body'), rows, (r, p) => [
+            r.trade_date, C.fmt.format(r.long_oi), C.fmt.format(r.short_oi), C.signed(r.net_oi),
+            p ? C.signed(r.net_oi - p.net_oi) : '—',
+        ]);
     }
 
-    function tipRow(s, valueText) {
-        const row = document.createElement('div');
-        row.className = 'row';
-        const key = document.createElement('i');
-        key.className = 'key';
-        key.style.background = s.color;
-        const name = document.createElement('span');
-        name.className = 'name';
-        name.textContent = s.name;
-        const value = document.createElement('strong');
-        value.textContent = valueText;
-        row.append(key, name, value);
-        return row;
-    }
-
-    function renderTiles() {
-        const tiles = document.getElementById('tiles');
-        tiles.textContent = '';
-        const last = rows[rows.length - 1];
-        const prev = rows[rows.length - 2];
-        const items = [
-            { label: '多單', color: 'var(--series-long)', key: 'long_oi' },
-            { label: '空單', color: 'var(--series-short)', key: 'short_oi' },
-            { label: '淨額', color: 'var(--series-net)', key: 'net_oi', signed: true },
-        ];
-        for (const it of items) {
-            const tile = document.createElement('div');
-            tile.className = 'tile';
-            const label = document.createElement('div');
-            label.className = 'label';
-            const key = document.createElement('i');
-            key.className = 'key';
-            key.style.background = it.color;
-            label.append(key, document.createTextNode(it.label));
-            const value = document.createElement('div');
-            value.className = 'value';
-            value.textContent = it.signed ? signed(last[it.key]) : fmt.format(last[it.key]);
-            const delta = document.createElement('div');
-            delta.className = 'delta';
-            delta.textContent = prev ? `較前一日 ${signed(last[it.key] - prev[it.key])} 口` : '—';
-            tile.append(label, value, delta);
-            tiles.appendChild(tile);
-        }
-        const dateTile = document.createElement('div');
-        dateTile.className = 'tile';
-        const dl = document.createElement('div');
-        dl.className = 'label';
-        dl.textContent = '最新交易日';
-        const dv = document.createElement('div');
-        dv.className = 'value';
-        dv.textContent = last.trade_date;
-        dateTile.append(dl, dv);
-        tiles.appendChild(dateTile);
-    }
-
-    function renderTable() {
-        const body = document.getElementById('table-body');
-        body.textContent = '';
-        for (let i = rows.length - 1; i >= 0; i--) {
-            const r = rows[i];
-            const prev = rows[i - 1];
-            const tr = document.createElement('tr');
-            const cells = [
-                r.trade_date, fmt.format(r.long_oi), fmt.format(r.short_oi), signed(r.net_oi),
-                prev ? signed(r.net_oi - prev.net_oi) : '—',
-            ];
-            for (const c of cells) {
-                const td = document.createElement('td');
-                td.textContent = c;
-                tr.appendChild(td);
-            }
-            body.appendChild(tr);
-        }
-    }
-
-    function renderEmpty() {
-        document.getElementById('tiles').textContent = '';
-        for (const id of ['chart-oi', 'chart-net']) {
-            const svg = document.getElementById(id);
-            svg.style.display = 'none';
-            if (!svg.nextElementSibling.classList.contains('empty')) {
-                const empty = document.createElement('div');
-                empty.className = 'empty';
-                empty.innerHTML = '目前還沒有資料。<br>服務啟動後會自動往回補一年，也可以手動執行 ' +
-                    '<code>python -m app.services.foreign_futures --backfill 365</code>';
-                svg.after(empty);
-            }
-        }
-        document.getElementById('table-body').textContent = '';
-    }
-
-    function render() {
-        rows = filterRows();
-        if (!rows.length) return renderEmpty();
-        renderTiles();
-        drawChart(document.getElementById('chart-oi'), document.getElementById('tip-oi'), SERIES_OI, { withNet: true });
-        drawChart(document.getElementById('chart-net'), document.getElementById('tip-net'), SERIES_NET, { includeZero: true, signed: true });
-        renderTable();
-    }
-
-    function filterRows() {
-        if (!days || !allRows.length) return allRows;
-        const lastDate = new Date(allRows[allRows.length - 1].trade_date);
-        const since = new Date(lastDate.getTime() - days * 86400000).toISOString().slice(0, 10);
-        return allRows.filter(r => r.trade_date >= since);
-    }
-
-    document.querySelectorAll('.filters button').forEach(btn => {
-        btn.addEventListener('click', () => {
-            document.querySelectorAll('.filters button').forEach(b => b.setAttribute('aria-pressed', 'false'));
-            btn.setAttribute('aria-pressed', 'true');
-            days = Number(btn.dataset.days);
-            render();
-        });
-    });
-
-    let resizeTimer;
-    window.addEventListener('resize', () => {
-        clearTimeout(resizeTimer);
-        resizeTimer = setTimeout(() => rows.length && render(), 150);
-    });
-
+    const currentDays = C.bindRange(render, 90);
     fetch('/api/foreign-futures')
         .then(r => r.json())
         .then(data => {
             allRows = (data.rows || []).filter(r => r.long_oi != null && r.short_oi != null && r.net_oi != null);
-            render();
+            render(currentDays());
         })
-        .catch(err => {
-            console.error(err);
-            renderEmpty();
-        });
+        .catch(err => { console.error(err); render(currentDays()); });
 })();
 </script>
 </body>

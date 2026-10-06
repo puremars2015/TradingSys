@@ -1,0 +1,95 @@
+/* 行情看板共用樣式（/foreign-futures、/taiex） */
+:root {
+    --page: #1a1a2e;
+    --surface-1: #16213e;
+    --surface-2: #0f3460;
+    --text-primary: #eeeeee;
+    --text-secondary: #b8bccb;
+    --text-muted: #8a90a6;
+    --accent: #00d4ff;
+    --grid: rgba(255, 255, 255, 0.08);
+    --axis: rgba(255, 255, 255, 0.25);
+    /* 驗證過的深色類別色（surface #16213e，前三色兩兩皆通過 CVD 檢查）；依序使用，不循環 */
+    --series-1: #3987e5;
+    --series-2: #d95926;
+    --series-3: #199e70;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--page);
+    color: var(--text-primary);
+    min-height: 100vh;
+    padding: 20px 16px;
+}
+.container { max-width: 1400px; margin: 0 auto; }
+.topbar {
+    display: flex; align-items: baseline; justify-content: space-between;
+    flex-wrap: wrap; gap: 8px; margin-bottom: 20px;
+}
+h1 { color: var(--accent); font-size: 24px; }
+.topbar a { color: var(--accent); text-decoration: none; font-size: 14px; }
+.subtitle { color: var(--text-muted); font-size: 13px; margin-top: 4px; }
+
+.filters { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px; }
+.filters button {
+    background: var(--surface-1); color: var(--text-secondary);
+    border: 1px solid var(--surface-2); border-radius: 6px;
+    padding: 6px 14px; font-size: 13px; cursor: pointer;
+}
+.filters button:hover { background: var(--surface-2); }
+.filters button[aria-pressed="true"] {
+    background: var(--surface-2); color: var(--text-primary);
+    border-color: var(--accent); font-weight: 600;
+}
+
+.tiles {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 12px; margin-bottom: 16px;
+}
+.tile { background: var(--surface-1); border-radius: 10px; padding: 14px 16px; }
+.tile .label { color: var(--text-muted); font-size: 12px; display: flex; align-items: center; gap: 6px; }
+.tile .value { font-size: 24px; font-weight: 700; margin-top: 6px; font-variant-numeric: tabular-nums; }
+.tile .delta { color: var(--text-secondary); font-size: 12px; margin-top: 2px; font-variant-numeric: tabular-nums; }
+.key { display: inline-block; width: 14px; height: 2px; border-radius: 1px; }
+.key.box { width: 10px; height: 10px; border-radius: 2px; }
+.tile .value.small { font-size: 20px; }
+
+.card { background: var(--surface-1); border-radius: 10px; padding: 16px; margin-bottom: 16px; position: relative; }
+.card-head { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
+.card h2 { font-size: 16px; color: var(--text-primary); }
+.legend { display: flex; gap: 16px; font-size: 13px; color: var(--text-secondary); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.chart { width: 100%; height: 300px; display: block; touch-action: pan-y; }
+.chart.net { height: 220px; }
+.chart text { fill: var(--text-muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+.chart .grid { stroke: var(--grid); stroke-width: 1; }
+.chart .zero { stroke: var(--axis); stroke-width: 1; }
+.chart .line { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.chart .crosshair { stroke: var(--text-muted); stroke-width: 1; }
+.chart .direct-label { font-size: 12px; font-weight: 600; fill: var(--text-secondary); }
+
+.tooltip {
+    position: absolute; pointer-events: none; display: none;
+    background: var(--page); border: 1px solid var(--surface-2); border-radius: 8px;
+    padding: 8px 10px; font-size: 12px; min-width: 150px; z-index: 5;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+}
+.tooltip .date { color: var(--text-muted); margin-bottom: 4px; }
+.tooltip .row { display: flex; align-items: center; gap: 8px; margin-top: 2px; }
+.tooltip .row strong { color: var(--text-primary); font-variant-numeric: tabular-nums; margin-left: auto; }
+.tooltip .row span.name { color: var(--text-secondary); }
+
+.empty { color: var(--text-muted); text-align: center; padding: 60px 0; line-height: 1.8; }
+.empty code { background: var(--page); padding: 2px 6px; border-radius: 4px; }
+
+details { background: var(--surface-1); border-radius: 10px; padding: 12px 16px; }
+summary { cursor: pointer; color: var(--text-secondary); font-size: 14px; }
+.table-wrapper { overflow-x: auto; max-height: 420px; overflow-y: auto; margin-top: 10px; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
+th, td { padding: 8px 10px; text-align: right; border-bottom: 1px solid var(--surface-2); white-space: nowrap; }
+th:first-child, td:first-child { text-align: left; }
+th { color: var(--accent); position: sticky; top: 0; background: var(--surface-1); }
+.footer { text-align: center; color: var(--text-muted); font-size: 12px; margin-top: 20px; }
+    
+.topnav { display: flex; gap: 14px; font-size: 14px; }

@@ -6,7 +6,7 @@ from unittest.mock import patch
 
 from app.config import Config
 from app import models
-from app.foreign_futures_scheduler import TAIPEI, _should_sync
+from app.market_data_scheduler import TAIPEI, _should_sync
 from app.services import foreign_futures
 
 HEADER = (
@@ -72,10 +72,11 @@ class SyncTests(unittest.TestCase):
 class SchedulerTests(unittest.TestCase):
     def test_syncs_only_on_weekday_window_when_today_missing(self):
         weekday_4pm = datetime(2026, 10, 6, 16, 0, tzinfo=TAIPEI)  # 週二
-        self.assertTrue(_should_sync(weekday_4pm, '2026-10-05'))
-        self.assertFalse(_should_sync(weekday_4pm, '2026-10-06'))
-        self.assertFalse(_should_sync(datetime(2026, 10, 6, 10, 0, tzinfo=TAIPEI), '2026-10-05'))
-        self.assertFalse(_should_sync(datetime(2026, 10, 10, 16, 0, tzinfo=TAIPEI), '2026-10-09'))
+        self.assertTrue(_should_sync(weekday_4pm, '2026-10-05', 15))
+        self.assertFalse(_should_sync(weekday_4pm, '2026-10-06', 15))
+        self.assertFalse(_should_sync(datetime(2026, 10, 6, 14, 30, tzinfo=TAIPEI), '2026-10-05', 15))
+        self.assertTrue(_should_sync(datetime(2026, 10, 6, 14, 30, tzinfo=TAIPEI), '2026-10-05', 14))
+        self.assertFalse(_should_sync(datetime(2026, 10, 10, 16, 0, tzinfo=TAIPEI), '2026-10-09', 15))
 
 
 if __name__ == '__main__':

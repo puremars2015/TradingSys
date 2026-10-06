@@ -13,12 +13,12 @@ from zoneinfo import ZoneInfo
 from flask import Flask, request, jsonify, render_template, Response
 from app.config import Config
 from app.models import (
-    init_db, get_latest_signal, get_signals_count, get_signals_page, get_foreign_futures
+    init_db, get_latest_signal, get_signals_count, get_signals_page, get_foreign_futures, get_taiex
 )
 from app.services.signal_analyzer import parse_payload, process_signal
 from app.services.telegram_bot import send_trading_notification
 from app.telegram_polling import start_polling
-from app.foreign_futures_scheduler import start_scheduler
+from app.market_data_scheduler import start_scheduler
 from app.services.llm_generator import generate_recommendation_message
 
 
@@ -119,6 +119,22 @@ def foreign_futures_api():
         'commodity': commodity,
         'rows': get_foreign_futures(commodity, days or None),
     })
+
+
+@app.route('/taiex')
+def taiex_page():
+    """加權指數與每日成交量看板。"""
+    return render_template('taiex.html')
+
+
+@app.route('/api/taiex')
+def taiex_api():
+    """加權指數每日資料（由舊到新）。?days=N 取最近 N 個日曆天，0 或不給表示全部。"""
+    try:
+        days = max(0, int(request.args.get('days', 0)))
+    except ValueError:
+        days = 0
+    return jsonify({'rows': get_taiex(days or None)})
 
 
 def _async_notify(data: dict, result: dict):
