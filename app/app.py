@@ -12,7 +12,7 @@ from threading import Thread
 from zoneinfo import ZoneInfo
 from flask import Flask, request, jsonify, render_template, Response
 from app.config import Config
-from app.models import init_db, get_latest_signal, get_recent_signals
+from app.models import init_db, get_latest_signal, get_signals_count, get_signals_page
 from app.services.signal_analyzer import parse_payload, process_signal
 from app.services.telegram_bot import send_trading_notification
 from app.telegram_polling import start_polling
@@ -50,25 +50,38 @@ def format_taiwan_time(value):
 
 @app.route('/')
 def index():
-    """Home page showing recent signals"""
+    """Home page showing all signals with pagination (50 per page)."""
     healthy = False
     db_records = 0
+    per_page = 50
+    page = 1
+    total_pages = 1
     try:
-        recent = get_recent_signals(limit=5)
+        page = max(1, int(request.args.get('page', 1)))
+        db_records = get_signals_count()
+        total_pages = max(1, (db_records + per_page - 1) // per_page)
+        if page > total_pages:
+            page = total_pages
+        recent = get_signals_page(page=page, per_page=per_page)
         latest = get_latest_signal()
-        db_records = len(recent)
         healthy = True
     except Exception as e:
         recent = []
         latest = None
         print(f"[Health Check] DB error: {e}")
 
+    pages = list(range(1, total_pages + 1))
+
     return render_template(
         'index.html',
         recent_signals=recent,
         latest_signal=latest,
         healthy=healthy,
-        db_records=db_records
+        db_records=db_records,
+        page=page,
+        per_page=per_page,
+        total_pages=total_pages,
+        pages=pages
     )
 
 

@@ -142,6 +142,59 @@
             color: #666;
             font-size: 14px;
         }
+        .pagination {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+        .page-btn {
+            display: inline-block;
+            padding: 8px 14px;
+            background: #0f3460;
+            color: #00d4ff;
+            border-radius: 6px;
+            text-decoration: none;
+            font-size: 14px;
+            border: 1px solid #00d4ff;
+            transition: background 0.2s;
+        }
+        .page-btn:hover {
+            background: #00d4ff;
+            color: #000;
+        }
+        .page-btn.disabled {
+            color: #666;
+            border-color: #333;
+            pointer-events: none;
+        }
+        .page-num {
+            display: inline-block;
+            min-width: 34px;
+            padding: 8px 10px;
+            text-align: center;
+            background: #0f3460;
+            color: #00d4ff;
+            border-radius: 6px;
+            text-decoration: none;
+            font-size: 14px;
+            border: 1px solid #0f3460;
+        }
+        .page-num:hover {
+            border-color: #00d4ff;
+        }
+        .page-num.active {
+            background: #00d4ff;
+            color: #000;
+            font-weight: bold;
+        }
+        .page-info {
+            color: #888;
+            font-size: 14px;
+            margin: 0 6px;
+        }
     </style>
 </head>
 <body>
@@ -244,6 +297,32 @@
             </tbody>
         </table>
         </div>
+
+        {% if total_pages > 1 %}
+        <div class="pagination">
+            {% if page > 1 %}
+            <a class="page-btn" href="?page={{ page - 1 }}">← 上一頁</a>
+            {% else %}
+            <span class="page-btn disabled">← 上一頁</span>
+            {% endif %}
+
+            {% for p in pages %}
+                {% if p == page %}
+                <span class="page-num active">{{ p }}</span>
+                {% else %}
+                <a class="page-num" href="?page={{ p }}">{{ p }}</a>
+                {% endif %}
+            {% endfor %}
+
+            {% if page < total_pages %}
+            <a class="page-btn" href="?page={{ page + 1 }}">下一頁 →</a>
+            {% else %}
+            <span class="page-btn disabled">下一頁 →</span>
+            {% endif %}
+
+            <span class="page-info">第 {{ page }} / {{ total_pages }} 頁 · 共 {{ db_records }} 筆</span>
+        </div>
+        {% endif %}
         
         <div class="footer">
             <p>TradingView Signal Bot © 2026</p>

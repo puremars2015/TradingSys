@@ -261,3 +261,44 @@ def get_all_signals(symbol: str = None) -> list:
     conn.close()
 
     return [dict(row) for row in rows]
+
+
+def get_signals_count(symbol: str = None) -> int:
+    """Total number of signal records (optionally filtered by symbol)."""
+    conn = get_db()
+    cursor = conn.cursor()
+
+    if symbol:
+        cursor.execute(
+            'SELECT COUNT(*) FROM trading_signals WHERE symbol = ?', (symbol,)
+        )
+    else:
+        cursor.execute('SELECT COUNT(*) FROM trading_signals')
+
+    total = cursor.fetchone()[0]
+    conn.close()
+    return total
+
+
+def get_signals_page(symbol: str = None, page: int = 1, per_page: int = 50) -> list:
+    """Get one page of signal records, newest first."""
+    page = max(1, page)
+    offset = (page - 1) * per_page
+    conn = get_db()
+    cursor = conn.cursor()
+
+    if symbol:
+        cursor.execute(
+            'SELECT * FROM trading_signals WHERE symbol = ? '
+            'ORDER BY id DESC LIMIT ? OFFSET ?',
+            (symbol, per_page, offset)
+        )
+    else:
+        cursor.execute(
+            'SELECT * FROM trading_signals ORDER BY id DESC LIMIT ? OFFSET ?',
+            (per_page, offset)
+        )
+
+    rows = cursor.fetchall()
+    conn.close()
+    return [dict(row) for row in rows]
