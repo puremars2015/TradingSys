@@ -1,4 +1,4 @@
-"""Background thread that syncs daily market data (TAIEX, foreign futures OI) once a trading day."""
+"""Background thread that syncs daily market data (TAIEX, foreign futures/options OI) once a trading day."""
 from __future__ import annotations
 
 import threading
@@ -9,7 +9,11 @@ from typing import Callable
 from zoneinfo import ZoneInfo
 
 from app.config import Config
-from app.models import get_latest_foreign_futures_date, get_latest_taiex_date
+from app.models import (
+    get_latest_foreign_futures_date, get_latest_foreign_options_date, get_latest_option_strike_date,
+    get_latest_pc_ratio_date, get_latest_taiex_date,
+)
+from app.services import options
 from app.services.foreign_futures import sync_foreign_futures
 from app.services.taiex import sync_taiex
 
@@ -40,6 +44,15 @@ def _jobs() -> list[Job]:
         jobs.append(Job('ForeignFutures', 15,
                         lambda: get_latest_foreign_futures_date(Config.FOREIGN_FUTURES_COMMODITY),
                         lambda today: sync_foreign_futures(today=today)))
+    if Config.OPTIONS_ENABLED:
+        # 選擇權三大法人、P/C 比、每日行情都在 15:00 前後公布
+        jobs.append(Job('ForeignOptions', 15,
+                        lambda: get_latest_foreign_options_date(options.COMMODITY),
+                        lambda today: options.sync_foreign_options(today=today)))
+        jobs.append(Job('PCRatio', 15, get_latest_pc_ratio_date,
+                        lambda today: options.sync_pc_ratio(today=today)))
+        jobs.append(Job('OptionStrikes', 15, get_latest_option_strike_date,
+                        lambda today: options.sync_option_strikes(today=today)))
     return jobs
 
 

@@ -85,6 +85,43 @@ def init_db():
         )
     ''')
 
+    # 外資台指選擇權留倉（期交所三大法人 - 選擇權買賣權分計），金額單位千元
+    conn.execute('''
+        CREATE TABLE IF NOT EXISTS foreign_options_oi (
+            trade_date TEXT NOT NULL,
+            commodity TEXT NOT NULL,
+            call_buy_oi INTEGER, call_buy_amount INTEGER,
+            call_sell_oi INTEGER, call_sell_amount INTEGER,
+            put_buy_oi INTEGER, put_buy_amount INTEGER,
+            put_sell_oi INTEGER, put_sell_amount INTEGER,
+            updated_at TEXT NOT NULL,
+            PRIMARY KEY (trade_date, commodity)
+        )
+    ''')
+
+    # 台指選擇權全市場 Put/Call 比（ratio 單位為 %）
+    conn.execute('''
+        CREATE TABLE IF NOT EXISTS options_pc_ratio (
+            trade_date TEXT PRIMARY KEY,
+            put_volume INTEGER, call_volume INTEGER, volume_ratio REAL,
+            put_oi INTEGER, call_oi INTEGER, oi_ratio REAL,
+            updated_at TEXT NOT NULL
+        )
+    ''')
+
+    # 台指選擇權各履約價未平倉（一般交易時段）
+    conn.execute('''
+        CREATE TABLE IF NOT EXISTS option_strike_oi (
+            trade_date TEXT NOT NULL,
+            expiry TEXT NOT NULL,
+            strike REAL NOT NULL,
+            call_oi INTEGER, put_oi INTEGER,
+            call_settle REAL, put_settle REAL,
+            updated_at TEXT NOT NULL,
+            PRIMARY KEY (trade_date, expiry, strike)
+        )
+    ''')
+
     conn.commit()
     conn.close()
 
@@ -438,3 +475,123 @@ def get_taiex(days: int | None = None) -> list:
         rows = conn.execute('SELECT * FROM taiex_daily ORDER BY trade_date').fetchall()
     conn.close()
     return [dict(row) for row in rows]
+
+
+def _upsert(table: str, keys: tuple, columns: tuple, rows: list) -> int:
+    """依主鍵 keys 寫入或覆寫 columns，附上 updated_at。回傳寫入筆數。"""
+    if not rows:
+        return 0
+    names = keys + columns + ('updated_at',)
+    updates = ', '.join(f'{c} = excluded.{c}' for c in columns + ('updated_at',))
+    now = datetime.now().isoformat()
+    conn = get_db()
+    conn.executemany(
+        f"INSERT INTO {table} ({', '.join(names)}) VALUES ({', '.join('?' for _ in names)}) "
+        f"ON CONFLICT({', '.join(keys)}) DO UPDATE SET {updates}",
+        [tuple(r.get(n) for n in keys + columns) + (now,) for r in rows]
+    )
+    conn.commit()
+    conn.close()
+    return len(rows)
+
+
+def _latest_date(table: str, where: str = '', params: tuple = ()) -> str | None:
+    conn = get_db()
+    row = conn.execute(f'SELECT MAX(trade_date) FROM {table} {where}', params).fetchone()
+    conn.close()
+    return row[0] if row else None
+
+
+def _rows_since(table: str, days: int | None, where: str = '', params: tuple = ()) -> list:
+    clauses = [where] if where else []
+    params = list(params)
+    if days:
+        clauses.append('trade_date >= ?')
+        params.append((datetime.now() - timedelta(days=days)).date().isoformat())
+    sql = f"SELECT * FROM {table}" + (f" WHERE {' AND '.join(clauses)}" if clauses else '') + ' ORDER BY trade_date'
+    conn = get_db()
+    rows = conn.execute(sql, params).fetchall()
+    conn.close()
+    return [dict(row) for row in rows]
+
+
+FOREIGN_OPTIONS_COLUMNS = (
+    'call_buy_oi', 'call_buy_amount', 'call_sell_oi', 'call_sell_amount',
+    'put_buy_oi', 'put_buy_amount', 'put_sell_oi', 'put_sell_amount',
+)
+
+
+def upsert_foreign_options(rows: list) -> int:
+    return _upsert('foreign_options_oi', ('trade_date', 'commodity'), FOREIGN_OPTIONS_COLUMNS, rows)
+
+
+def get_latest_foreign_options_date(commodity: str) -> str | None:
+    return _latest_date('foreign_options_oi', 'WHERE commodity = ?', (commodity,))
+
+
+def get_foreign_options(commodity: str, days: int | None = None) -> list:
+    return _rows_since('foreign_options_oi', days, 'commodity = ?', (commodity,))
+
+
+def upsert_pc_ratio(rows: list) -> int:
+    return _upsert('options_pc_ratio', ('trade_date',),
+                   ('put_volume', 'call_volume', 'volume_ratio', 'put_oi', 'call_oi', 'oi_ratio'), rows)
+
+
+def get_latest_pc_ratio_date() -> str | None:
+    return _latest_date('options_pc_ratio')
+
+
+def get_pc_ratio(days: int | None = None) -> list:
+    return _rows_since('options_pc_ratio', days)
+
+
+def upsert_option_strikes(rows: list) -> int:
+    return _upsert('option_strike_oi', ('trade_date', 'expiry', 'strike'),
+                   ('call_oi', 'put_oi', 'call_settle', 'put_settle'), rows)
+
+
+def get_latest_option_strike_date() -> str | None:
+    return _latest_date('option_strike_oi')
+
+
+def get_option_strike_dates(limit: int = 30) -> list:
+    """有履約價資料的交易日，新到舊。"""
+    conn = get_db()
+    rows = conn.execute(
+        'SELECT DISTINCT trade_date FROM option_strike_oi ORDER BY trade_date DESC LIMIT ?', (limit,)
+    ).fetchall()
+    conn.close()
+    return [r[0] for r in rows]
+
+
+def get_option_expiries(trade_date: str) -> list:
+    """某交易日的到期代號與各自的 Call/Put 未平倉總量。"""
+    conn = get_db()
+    rows = conn.execute('''
+        SELECT expiry, SUM(COALESCE(call_oi, 0)) AS call_oi, SUM(COALESCE(put_oi, 0)) AS put_oi
+        FROM option_strike_oi WHERE trade_date = ? GROUP BY expiry
+    ''', (trade_date,)).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def get_option_strikes(trade_date: str, expiry: str) -> list:
+    """某交易日、某到期的各履約價未平倉，附上與前一個交易日相比的增減。"""
+    conn = get_db()
+    prev = conn.execute(
+        'SELECT MAX(trade_date) FROM option_strike_oi WHERE trade_date < ? AND expiry = ?',
+        (trade_date, expiry)
+    ).fetchone()[0]
+    rows = conn.execute('''
+        SELECT cur.strike, cur.call_oi, cur.put_oi, cur.call_settle, cur.put_settle,
+               cur.call_oi - prev.call_oi AS call_oi_change,
+               cur.put_oi - prev.put_oi AS put_oi_change
+        FROM option_strike_oi cur
+        LEFT JOIN option_strike_oi prev
+          ON prev.trade_date = ? AND prev.expiry = cur.expiry AND prev.strike = cur.strike
+        WHERE cur.trade_date = ? AND cur.expiry = ?
+        ORDER BY cur.strike
+    ''', (prev, trade_date, expiry)).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]

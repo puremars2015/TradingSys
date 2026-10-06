@@ -57,6 +57,9 @@
      *
      * series: [{ key, name, color, type: 'line' | 'bar', label: true|false }]
      * opts:   { includeZero, valueText(v, s), axisText(v), labelText(v),
+     *           xText(r), tipTitle(r),          // 預設 x 軸是 trade_date
+     *           grouped,                        // 多組長條並排（預設重疊）
+     *           refLines: [{ value, label }],   // 水平參考線
      *           extraTip: [{ name, color, value: r => text }] }
      *
      * 值為 null 的點在折線上會斷開（例如資料不足的均線）。
@@ -74,8 +77,12 @@
         const valueText = opts.valueText || (v => fmt.format(v));
         const axisText = opts.axisText || shortNum;
         const labelText = opts.labelText || shortNum;
+        const xText = opts.xText || (r => r.trade_date.slice(5).replace('-', '/'));
+        const tipTitle = opts.tipTitle || (r => r.trade_date);
+        const refLines = opts.refLines || [];
 
-        const values = rows.flatMap(r => series.map(s => r[s.key])).filter(v => v != null);
+        const values = rows.flatMap(r => series.map(s => r[s.key])).filter(v => v != null)
+            .concat(refLines.map(l => l.value));
         let lo = Math.min(...values), hi = Math.max(...values);
         if (opts.includeZero || hasBars) { lo = Math.min(lo, 0); hi = Math.max(hi, 0); }
         const ticks = niceTicks(lo, hi, 5);
@@ -99,24 +106,35 @@
             svgEl('text', {
                 x: x(i), y: m.top + h + 18,
                 'text-anchor': k === 0 ? 'start' : (k === xTickCount - 1 ? 'end' : 'middle'),
-            }, svg).textContent = rows[i].trade_date.slice(5).replace('-', '/');
+            }, svg).textContent = xText(rows[i]);
         }
 
-        for (const s of series.filter(s => s.type === 'bar')) {
-            // 長條之間留 2px 底色間隔；資料很密時至少保留 1px 寬
-            const gap = band > 4 ? 2 : 0;
-            const bw = Math.max(1, band - gap);
+        for (const line of refLines) {
+            svgEl('line', { class: 'ref', x1: m.left, x2: m.left + w, y1: y(line.value), y2: y(line.value) }, svg);
+            if (line.label) {
+                svgEl('text', { class: 'ref-label', x: m.left + 4, y: y(line.value) - 6 }, svg)
+                    .textContent = line.label;
+            }
+        }
+
+        const barSeries = series.filter(s => s.type === 'bar');
+        // 長條之間留 2px 底色間隔；資料很密時至少保留 1px 寬
+        const gap = band > 4 ? 2 : 0;
+        const slots = opts.grouped ? barSeries.length : 1;
+        const bw = Math.max(1, (band - gap) / slots - (opts.grouped && band > 8 ? 1 : 0));
+        barSeries.forEach((s, k) => {
+            const offset = opts.grouped ? (k - (slots - 1) / 2) * ((band - gap) / slots) : 0;
             const radius = bw >= 8 ? 4 : 0;
             rows.forEach((r, i) => {
                 const v = r[s.key];
                 if (v == null) return;
                 const top = y(Math.max(v, 0)), bottom = y(Math.min(v, 0));
                 svgEl('rect', {
-                    x: x(i) - bw / 2, y: top, width: bw, height: Math.max(1, bottom - top),
+                    x: x(i) + offset - bw / 2, y: top, width: bw, height: Math.max(1, bottom - top),
                     rx: radius, fill: s.color,
                 }, svg);
             });
-        }
+        });
 
         for (const s of series.filter(s => s.type !== 'bar')) {
             let d = '';
@@ -162,7 +180,7 @@
             });
 
             tip.textContent = '';
-            tip.appendChild(htmlEl('div', 'date', r.trade_date));
+            tip.appendChild(htmlEl('div', 'date', tipTitle(r)));
             for (const s of series) {
                 if (r[s.key] != null) tip.appendChild(tipRow(s.name, s.color, valueText(r[s.key], s)));
             }

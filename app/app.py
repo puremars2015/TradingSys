@@ -13,8 +13,10 @@ from zoneinfo import ZoneInfo
 from flask import Flask, request, jsonify, render_template, Response
 from app.config import Config
 from app.models import (
-    init_db, get_latest_signal, get_signals_count, get_signals_page, get_foreign_futures, get_taiex
+    init_db, get_latest_signal, get_signals_count, get_signals_page, get_foreign_futures, get_taiex,
+    get_foreign_options, get_pc_ratio, get_option_strike_dates, get_option_expiries, get_option_strikes,
 )
+from app.services import options as options_service
 from app.services.signal_analyzer import parse_payload, process_signal
 from app.services.telegram_bot import send_trading_notification
 from app.telegram_polling import start_polling
@@ -135,6 +137,70 @@ def taiex_api():
     except ValueError:
         days = 0
     return jsonify({'rows': get_taiex(days or None)})
+
+
+def _days_arg() -> int | None:
+    """?days=N，0、不給或格式錯誤都表示全部。"""
+    try:
+        return max(0, int(request.args.get('days', 0))) or None
+    except ValueError:
+        return None
+
+
+@app.route('/options')
+def options_page():
+    """台指選擇權未平倉看板：外資留倉、P/C Ratio、各履約價分布。"""
+    return render_template('options.html')
+
+
+@app.route('/api/options/foreign')
+def options_foreign_api():
+    """外資台指選擇權留倉（由舊到新，金額單位千元）。"""
+    return jsonify({'rows': get_foreign_options(options_service.COMMODITY, _days_arg())})
+
+
+@app.route('/api/options/pc-ratio')
+def options_pc_ratio_api():
+    """台指選擇權 Put/Call 比（由舊到新，ratio 單位 %）。"""
+    return jsonify({'rows': get_pc_ratio(_days_arg())})
+
+
+@app.route('/api/options/strikes')
+def options_strikes_api():
+    """
+    各履約價未平倉。?date=YYYY-MM-DD 預設最新交易日；?expiry=202610 預設最近一個還沒到期的月選。
+    """
+    dates = get_option_strike_dates()
+    trade_date = request.args.get('date') if request.args.get('date') in dates else (dates[0] if dates else None)
+    if not trade_date:
+        return jsonify({'dates': [], 'date': None, 'expiries': [], 'expiry': None, 'rows': []})
+
+    expiries = []
+    for e in get_option_expiries(trade_date):
+        expires = options_service.expiry_date(e['expiry'])
+        expiries.append({
+            'code': e['expiry'],
+            'label': options_service.expiry_label(e['expiry']),
+            'expires': expires.isoformat() if expires else None,
+            'monthly': len(e['expiry']) == 6,
+            'call_oi': e['call_oi'],
+            'put_oi': e['put_oi'],
+        })
+    expiries.sort(key=lambda e: (e['expires'] or '9999', e['code']))
+
+    expiry = request.args.get('expiry')
+    if expiry not in {e['code'] for e in expiries}:
+        upcoming = [e for e in expiries if e['expires'] is None or e['expires'] >= trade_date]
+        monthly = [e for e in upcoming if e['monthly']]
+        expiry = (monthly or upcoming or expiries)[0]['code']
+
+    return jsonify({
+        'dates': dates,
+        'date': trade_date,
+        'expiries': expiries,
+        'expiry': expiry,
+        'rows': get_option_strikes(trade_date, expiry),
+    })
 
 
 def _async_notify(data: dict, result: dict):

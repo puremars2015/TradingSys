@@ -47,6 +47,10 @@
 | `/api/foreign-futures` | GET | 外資期貨留倉資料 JSON(`?days=N`) |
 | `/taiex` | GET | 加權指數(收盤 + MA20/MA60)與每日成交金額看板 |
 | `/api/taiex` | GET | 加權指數每日資料 JSON(`?days=N`) |
+| `/options` | GET | 台指選擇權未平倉看板(各履約價分布、外資留倉、P/C Ratio) |
+| `/api/options/strikes` | GET | 各履約價未平倉(`?date=`、`?expiry=`,預設最新交易日的最近月選) |
+| `/api/options/foreign` | GET | 外資台指選擇權留倉 JSON(`?days=N`,金額單位千元) |
+| `/api/options/pc-ratio` | GET | 台指選擇權 Put/Call 比 JSON(`?days=N`) |
 | `/` | GET | 狀態頁 |
 
 Payload 格式(裸陣列,也接受 `{"values":[...]}`):
@@ -115,11 +119,13 @@ curl -X POST http://localhost:8081/webhook/kd-sma \
 | `FOREIGN_FUTURES_ENABLED` | 是否啟動外資期貨每日同步(預設 `true`) |
 | `FOREIGN_FUTURES_COMMODITY` | 抓哪個期貨商品的外資留倉(預設 `TXF` 台指期) |
 | `TAIEX_ENABLED` | 是否啟動加權指數每日同步(預設 `true`) |
+| `OPTIONS_ENABLED` | 是否啟動選擇權未平倉每日同步(預設 `true`) |
 
-## 每日行情資料(外資期貨留倉、加權指數)
+## 每日行情資料(加權指數、外資期貨留倉、選擇權未平倉)
 
-- 排程:`app/market_data_scheduler.py` 一條背景執行緒跑所有每日任務。啟動先各同步一次(DB 空的會往回補一年),之後平日台北時間「公布時間–21:00」每 30 分鐘檢查,今天的資料進來就停(加權指數 14:00 起、外資期貨 15:00 起)
-- 圖表:`app/static/charts.js` + `charts.css` 是兩個看板共用的 SVG 圖表工具(無外部函式庫)
+- 排程:`app/market_data_scheduler.py` 一條背景執行緒跑所有每日任務。啟動先各同步一次(DB 空的會往回補一年),之後平日台北時間「公布時間–21:00」每 30 分鐘檢查,今天的資料進來就停(加權指數 14:00 起、外資期貨與選擇權 15:00 起)
+- 圖表:`app/static/charts.js` + `charts.css` 是所有看板共用的 SVG 圖表工具(無外部函式庫),支援折線、長條(可並排)、類別 x 軸、水平參考線
+- 期交所 CSV 下載共用 `app/services/taifex_client.py`(Big5 解碼、找表頭、分段補資料)
 - **證交所對連續請求很敏感**,太快會被暫時封鎖 IP;加權指數補資料逐月抓、每次間隔 3 秒
 
 ### 加權指數(`/taiex`)
@@ -133,6 +139,15 @@ curl -X POST http://localhost:8081/webhook/kd-sma \
 - 抓取:`app/services/foreign_futures.py`,來源是期交所「三大法人 - 區分各期貨契約」CSV 下載端點 `futContractsDateDown`(Big5),只留「外資及陸資」那列的未平倉口數/金額
 - 資料表:`foreign_futures_oi`(`trade_date` + `commodity` 為主鍵,重抓會覆寫)
 - 手動補資料:`docker compose exec flask python -m app.services.foreign_futures --backfill 365`
+
+### 選擇權未平倉(`/options`)
+
+- 抓取:`app/services/options.py`,三個期交所來源(皆為 TXO 台指選擇權):
+  - 外資留倉:三大法人「選擇權買賣權分計」`callsAndPutsDateDown`,只留外資的買權/賣權 買方/賣方 未平倉口數與金額 → `foreign_options_oi`
+  - P/C Ratio:`pcRatioDown`,成交量比與未平倉量比(%)→ `options_pc_ratio`
+  - 各履約價未平倉:每日交易行情 `optDataDown`,只取一般交易時段的「未沖銷契約數」→ `option_strike_oi`(每天每個到期每個履約價一筆,資料量大,只補最近 7 天)
+- 到期代號:`202610` 月選(第三個週三)、`202610W2` 週三週選、`202610F1` 週五週選;`expiry_date()` 推算到期日用來排序與挑預設到期
+- 手動補資料:`docker compose exec flask python -m app.services.options --backfill 365`(履約價分布最多補 30 天)
 
 ## 已知的坑
 

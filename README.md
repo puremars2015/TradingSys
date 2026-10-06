@@ -36,6 +36,10 @@
 | `/api/foreign-futures` | GET | 外資期貨留倉資料 JSON(`?days=N`) |
 | `/taiex` | GET | 加權指數(收盤 + MA20/MA60)與每日成交金額看板 |
 | `/api/taiex` | GET | 加權指數每日資料 JSON(`?days=N`) |
+| `/options` | GET | 台指選擇權未平倉看板(各履約價分布、外資留倉、P/C Ratio) |
+| `/api/options/strikes` | GET | 各履約價未平倉(`?date=`、`?expiry=`,預設最新交易日的最近月選) |
+| `/api/options/foreign` | GET | 外資台指選擇權留倉 JSON(`?days=N`,金額單位千元) |
+| `/api/options/pc-ratio` | GET | 台指選擇權 Put/Call 比 JSON(`?days=N`) |
 
 ### Payload 格式
 
