@@ -247,16 +247,34 @@
             );
             const lastTxf = [...pc].reverse().find(r => r.txf_close != null);
             if (lastTxf) tiles.push({ label: '台指期近月收盤', color: TXF, value: priceText(lastTxf.txf_close), delta: lastTxf.trade_date });
-            // P/C 未平倉量比畫直條（左軸 %），台指期收盤畫折線（右軸 點），同一張圖對照
+            // P/C 未平倉量比 MAs（左軸 %），只在有效值上計算
+            const pcMA5 = [], pcMA20 = [], pcMA60 = [];
+            const valid = pc.filter(r => r.oi_ratio != null);
+            let vi = -1;
+            for (const r of pc) {
+                if (r.oi_ratio == null) { pcMA5.push(null); pcMA20.push(null); pcMA60.push(null); continue; }
+                vi++;
+                pcMA5.push(vi >= 4 ? valid.slice(Math.max(0, vi - 4), vi + 1).reduce((a, rv) => a + rv.oi_ratio, 0) / 5 : null);
+                pcMA20.push(vi >= 19 ? valid.slice(Math.max(0, vi - 19), vi + 1).reduce((a, rv) => a + rv.oi_ratio, 0) / 20 : null);
+                pcMA60.push(vi >= 59 ? valid.slice(Math.max(0, vi - 59), vi + 1).reduce((a, rv) => a + rv.oi_ratio, 0) / 60 : null);
+            }
+            // P/C 未平倉量比畫直條（左軸 %），MA 折線也在左軸，台指期收盤畫折線（右軸 點）
             const hasTxf = pc.some(r => r.txf_close != null);
             document.getElementById('legend-txf').style.display = hasTxf ? '' : 'none';
-            const pcSeries = [{ key: 'oi_ratio', name: 'P/C 未平倉量比', color: S3, type: 'bar', label: false }];
+            const pcSeries = [
+                { key: 'oi_ratio', name: 'P/C 未平倉量比', color: S3, type: 'bar', label: false },
+                { key: 'oi_ratio_ma5', name: 'MA5', color: '#5b8ff9', label: false },
+                { key: 'oi_ratio_ma20', name: 'MA20', color: '#ff6c02', label: false },
+                { key: 'oi_ratio_ma60', name: 'MA60', color: '#ff99cc', label: false },
+            ];
             if (hasTxf) pcSeries.push({ key: 'txf_close', name: '台指期', color: TXF, axis: 'right' });
-            C.drawChart(document.getElementById('chart-pc'), document.getElementById('tip-pc'), pc, pcSeries, {
+            const pcRows = pc.map((r, i) => Object.assign({}, r, { oi_ratio_ma5: pcMA5[i], oi_ratio_ma20: pcMA20[i], oi_ratio_ma60: pcMA60[i] }));
+            C.drawChart(document.getElementById('chart-pc'), document.getElementById('tip-pc'), pcRows, pcSeries, {
                 valueText: (v, s) => s.key === 'txf_close' ? priceText(v) : pctText(v),
                 axisText: v => v + '%',
                 rightAxisText: v => C.fmt.format(v),
                 refLines: [{ value: 100, label: '100%' }],
+                fitRange: true,
                 extraTip: [{ name: '成交量比', color: 'transparent', value: r => pctText(r.volume_ratio) }],
             });
         } else {

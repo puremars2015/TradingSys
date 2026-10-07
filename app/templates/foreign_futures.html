@@ -101,14 +101,29 @@
             { key: 'long_oi', name: '多單', color: LONG },
             { key: 'short_oi', name: '空單', color: SHORT },
         ], { extraTip: [{ name: '淨額', color: NET, value: r => C.signed(r.net_oi) }] });
-        // 淨額畫直條（左軸 口），加權指數收盤畫折線（右軸 點），同一張圖對照
+        // 淨額 MAs（左軸）
+        const netMA5 = [], netMA20 = [], netMA60 = [];
+        for (let i = 0; i < rows.length; i++) {
+            const v = rows[i].net_oi;
+            netMA5.push(v != null && i >= 4 ? rows.slice(i - 4, i + 1).reduce((a, r) => a + r.net_oi, 0) / 5 : null);
+            netMA20.push(v != null && i >= 19 ? rows.slice(i - 19, i + 1).reduce((a, r) => a + r.net_oi, 0) / 20 : null);
+            netMA60.push(v != null && i >= 59 ? rows.slice(i - 59, i + 1).reduce((a, r) => a + r.net_oi, 0) / 60 : null);
+        }
+        // 淨額畫直條（左軸 口），MA 折線也在左軸，加權指數收盤畫折線（右軸 點）
         const hasIndex = rows.some(r => r.taiex_close != null);
         document.getElementById('legend-index').style.display = hasIndex ? '' : 'none';
-        const netSeries = [{ key: 'net_oi', name: '淨額', color: NET, type: 'bar', label: false }];
+        const netSeries = [
+            { key: 'net_oi', name: '淨額', color: NET, type: 'bar', label: false },
+            { key: 'net_oi_ma5', name: 'MA5', color: '#5b8ff9', label: false },
+            { key: 'net_oi_ma20', name: 'MA20', color: '#ff6c02', label: false },
+            { key: 'net_oi_ma60', name: 'MA60', color: '#ff99cc', label: false },
+        ];
         if (hasIndex) netSeries.push({ key: 'taiex_close', name: '加權指數', color: INDEX, axis: 'right' });
-        C.drawChart(document.getElementById('chart-net'), document.getElementById('tip-net'), rows, netSeries, {
+        const netRows = rows.map((r, i) => Object.assign({}, r, { net_oi_ma5: netMA5[i], net_oi_ma20: netMA20[i], net_oi_ma60: netMA60[i] }));
+        C.drawChart(document.getElementById('chart-net'), document.getElementById('tip-net'), netRows, netSeries, {
             valueText: (v, s) => s.key === 'taiex_close' ? indexText(v) : C.signed(v),
             rightAxisText: v => C.fmt.format(v),
+            fitRange: true,
         });
         C.renderTable(document.getElementById('table-body'), rows, (r, p) => [
             r.trade_date, C.fmt.format(r.long_oi), C.fmt.format(r.short_oi), C.signed(r.net_oi),
