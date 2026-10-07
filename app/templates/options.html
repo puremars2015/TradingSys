@@ -75,15 +75,13 @@
 
     <div class="card">
         <div class="card-head">
-            <h2>Put/Call Ratio（%）</h2>
+            <h2>Put/Call Ratio vs 台指期</h2>
             <div class="legend">
-                <span><i class="key" style="background: var(--series-3)"></i>未平倉量比</span>
-                <span><i class="key" style="background: var(--text-muted)"></i>成交量比</span>
+                <span><i class="key box" style="background: var(--series-3)"></i>P/C 未平倉量比（左軸 %）</span>
+                <span id="legend-txf"><i class="key" style="background: var(--text-primary)"></i>台指期近月收盤（右軸 點）</span>
             </div>
         </div>
-        <svg class="chart net" id="chart-pc" role="img" aria-label="台指選擇權 Put/Call 未平倉量比與成交量比折線圖"></svg>
-        <div class="panel-label" id="label-pc-txf"><i class="key" style="background: var(--text-secondary)"></i>台指期近月收盤（點）· 與上圖日期對齊</div>
-        <svg class="chart short" id="chart-pc-txf" role="img" aria-label="同期間台指期近月收盤價折線圖"></svg>
+        <svg class="chart" id="chart-pc" role="img" aria-label="台指選擇權 Put/Call 未平倉量比直條圖，疊加台指期近月收盤折線"></svg>
         <div class="tooltip" id="tip-pc"></div>
     </div>
 
@@ -109,8 +107,8 @@
 <script>
 (function () {
     const C = window.MarketCharts;
-    const S1 = 'var(--series-1)', S2 = 'var(--series-2)', S3 = 'var(--series-3)', MUTED = 'var(--text-muted)';
-    const TXF = 'var(--text-secondary)';
+    const S1 = 'var(--series-1)', S2 = 'var(--series-2)', S3 = 'var(--series-3)';
+    const TXF = 'var(--text-primary)';
     const yi = new Intl.NumberFormat('zh-TW', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
     const num = v => v == null ? '—' : C.fmt.format(v);
     const chg = v => v == null ? '—' : C.signed(v);
@@ -227,40 +225,24 @@
             const last = pc[pc.length - 1];
             tiles.push(
                 { label: 'P/C 未平倉量比', color: S3, value: pctText(last.oi_ratio), delta: `Put ${num(last.put_oi)}・Call ${num(last.call_oi)} 口` },
-                { label: 'P/C 成交量比', color: MUTED, value: pctText(last.volume_ratio), delta: `Put ${num(last.put_volume)}・Call ${num(last.call_volume)} 口` },
+                { label: 'P/C 成交量比', value: pctText(last.volume_ratio), delta: `Put ${num(last.put_volume)}・Call ${num(last.call_volume)} 口` },
             );
-            // P/C 比（%）與台指期價格（點）單位不同，分成上下兩張共用日期軸的圖，十字線連動
-            const tipPc = document.getElementById('tip-pc');
-            const txfSvg = document.getElementById('chart-pc-txf');
+            const lastTxf = [...pc].reverse().find(r => r.txf_close != null);
+            if (lastTxf) tiles.push({ label: '台指期近月收盤', color: TXF, value: priceText(lastTxf.txf_close), delta: lastTxf.trade_date });
+            // P/C 未平倉量比畫直條（左軸 %），台指期收盤畫折線（右軸 點），同一張圖對照
             const hasTxf = pc.some(r => r.txf_close != null);
-            txfSvg.style.display = hasTxf ? '' : 'none';
-            document.getElementById('label-pc-txf').style.display = hasTxf ? '' : 'none';
-            let txfChart = null;
-            const pcChart = C.drawChart(document.getElementById('chart-pc'), tipPc, pc, [
-                { key: 'oi_ratio', name: '未平倉量比', color: S3 },
-                { key: 'volume_ratio', name: '成交量比', color: MUTED, label: false },
-            ], {
-                valueText: v => pctText(v), axisText: v => v + '%', labelText: v => v.toFixed(1) + '%',
+            document.getElementById('legend-txf').style.display = hasTxf ? '' : 'none';
+            const pcSeries = [{ key: 'oi_ratio', name: 'P/C 未平倉量比', color: S3, type: 'bar', label: false }];
+            if (hasTxf) pcSeries.push({ key: 'txf_close', name: '台指期', color: TXF, axis: 'right' });
+            C.drawChart(document.getElementById('chart-pc'), document.getElementById('tip-pc'), pc, pcSeries, {
+                valueText: (v, s) => s.key === 'txf_close' ? priceText(v) : pctText(v),
+                axisText: v => v + '%',
+                rightAxisText: v => C.fmt.format(v),
                 refLines: [{ value: 100, label: '100%' }],
-                extraTip: hasTxf ? [{ name: '台指期', color: TXF, value: r => priceText(r.txf_close) }] : [],
-                onHover: i => txfChart && (i == null ? txfChart.unmark() : txfChart.mark(i)),
+                extraTip: [{ name: '成交量比', color: 'transparent', value: r => pctText(r.volume_ratio) }],
             });
-            if (hasTxf) {
-                txfChart = C.drawChart(txfSvg, tipPc, pc, [
-                    { key: 'txf_close', name: '台指期', color: TXF },
-                ], {
-                    valueText: priceText, axisText: v => C.fmt.format(v), labelText: v => C.fmt.format(Math.round(v)),
-                    extraTip: [
-                        { name: '未平倉量比', color: S3, value: r => pctText(r.oi_ratio) },
-                        { name: '成交量比', color: MUTED, value: r => pctText(r.volume_ratio) },
-                    ],
-                    onHover: i => i == null ? pcChart.unmark() : pcChart.mark(i),
-                });
-            }
         } else {
             C.showEmpty(['chart-pc'], 'python -m app.services.options --backfill 365');
-            document.getElementById('chart-pc-txf').style.display = 'none';
-            document.getElementById('label-pc-txf').style.display = 'none';
         }
 
         const latest = [foreign, pc].map(rows => rows.length ? rows[rows.length - 1].trade_date : '').sort().pop();

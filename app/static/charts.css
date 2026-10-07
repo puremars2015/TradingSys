@@ -62,8 +62,6 @@ h1 { color: var(--accent); font-size: 24px; }
 .legend span { display: inline-flex; align-items: center; gap: 6px; }
 .chart { width: 100%; height: 300px; display: block; touch-action: pan-y; }
 .chart.net { height: 220px; }
-.chart.short { height: 170px; }
-.panel-label { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-secondary); margin: 10px 0 2px; }
 .chart text { fill: var(--text-muted); font-size: 11px; font-variant-numeric: tabular-nums; }
 .chart .grid { stroke: var(--grid); stroke-width: 1; }
 .chart .zero { stroke: var(--axis); stroke-width: 1; }
@@ -96,7 +94,8 @@ th { color: var(--accent); position: sticky; top: 0; background: var(--surface-1
     
 .topnav { display: flex; gap: 14px; font-size: 14px; }
 .chart .ref { stroke: var(--text-muted); stroke-width: 1; stroke-dasharray: 4 4; }
-.chart .ref-label { font-size: 11px; fill: var(--text-muted); }
+.chart .ref-label { font-size: 11px; fill: var(--text-secondary); paint-order: stroke; stroke: var(--surface-1); stroke-width: 3px; }
+.chart .line.halo { stroke: var(--surface-1); stroke-width: 5; }
 .section-title { font-size: 18px; color: var(--accent); margin: 28px 0 12px; }
 .card-head select, .filters select {
     background: var(--page); color: var(--text-primary); border: 1px solid var(--surface-2);

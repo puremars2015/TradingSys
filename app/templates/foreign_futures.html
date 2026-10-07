@@ -45,12 +45,13 @@
 
     <div class="card">
         <div class="card-head">
-            <h2>多空淨額（口）</h2>
-            <div class="legend"><span>正值 = 淨多單、負值 = 淨空單</span></div>
+            <h2>多空淨額 vs 加權指數</h2>
+            <div class="legend">
+                <span><i class="key box" style="background: var(--series-3)"></i>淨額（左軸 口，正 = 淨多、負 = 淨空）</span>
+                <span id="legend-index"><i class="key" style="background: var(--text-primary)"></i>加權指數收盤（右軸 點）</span>
+            </div>
         </div>
-        <svg class="chart net" id="chart-net" role="img" aria-label="外資期貨多空未平倉淨額折線圖"></svg>
-        <div class="panel-label"><i class="key" style="background: var(--text-secondary)"></i>加權指數收盤（點）· 與上圖日期對齊</div>
-        <svg class="chart short" id="chart-net-index" role="img" aria-label="同期間加權指數收盤折線圖"></svg>
+        <svg class="chart" id="chart-net" role="img" aria-label="外資期貨多空未平倉淨額直條圖，疊加加權指數收盤折線"></svg>
         <div class="tooltip" id="tip-net"></div>
     </div>
 
@@ -73,7 +74,7 @@
 <script>
 (function () {
     const C = window.MarketCharts;
-    const LONG = 'var(--series-1)', SHORT = 'var(--series-2)', NET = 'var(--series-3)', INDEX = 'var(--text-secondary)';
+    const LONG = 'var(--series-1)', SHORT = 'var(--series-2)', NET = 'var(--series-3)', INDEX = 'var(--text-primary)';
     const indexText = v => v == null ? '—' : C.fmt2.format(v);
     let allRows = [];
 
@@ -89,36 +90,22 @@
             { label: '多單', color: LONG, value: C.fmt.format(last.long_oi), delta: delta('long_oi') },
             { label: '空單', color: SHORT, value: C.fmt.format(last.short_oi), delta: delta('short_oi') },
             { label: '淨額', color: NET, value: C.signed(last.net_oi), delta: delta('net_oi') },
+            ...(last.taiex_close != null ? [{ label: '加權指數', color: INDEX, value: indexText(last.taiex_close) }] : []),
             { label: '最新交易日', value: last.trade_date, small: true },
         ]);
         C.drawChart(document.getElementById('chart-oi'), document.getElementById('tip-oi'), rows, [
             { key: 'long_oi', name: '多單', color: LONG },
             { key: 'short_oi', name: '空單', color: SHORT },
         ], { extraTip: [{ name: '淨額', color: NET, value: r => C.signed(r.net_oi) }] });
-        // 淨額與加權指數單位不同，分成上下兩張共用日期軸的圖，滑鼠移動時十字線連動
-        const tipNet = document.getElementById('tip-net');
-        const indexSvg = document.getElementById('chart-net-index');
+        // 淨額畫直條（左軸 口），加權指數收盤畫折線（右軸 點），同一張圖對照
         const hasIndex = rows.some(r => r.taiex_close != null);
-        indexSvg.style.display = hasIndex ? '' : 'none';
-        document.querySelector('.panel-label').style.display = hasIndex ? '' : 'none';
-        let netChart = null, indexChart = null;
-        const indexTip = [{ name: '加權指數', color: INDEX, value: r => indexText(r.taiex_close) }];
-        netChart = C.drawChart(document.getElementById('chart-net'), tipNet, rows, [
-            { key: 'net_oi', name: '淨額', color: NET },
-        ], {
-            includeZero: true, valueText: v => C.signed(v),
-            extraTip: hasIndex ? indexTip : [],
-            onHover: i => indexChart && (i == null ? indexChart.unmark() : indexChart.mark(i)),
+        document.getElementById('legend-index').style.display = hasIndex ? '' : 'none';
+        const netSeries = [{ key: 'net_oi', name: '淨額', color: NET, type: 'bar', label: false }];
+        if (hasIndex) netSeries.push({ key: 'taiex_close', name: '加權指數', color: INDEX, axis: 'right' });
+        C.drawChart(document.getElementById('chart-net'), document.getElementById('tip-net'), rows, netSeries, {
+            valueText: (v, s) => s.key === 'taiex_close' ? indexText(v) : C.signed(v),
+            rightAxisText: v => C.fmt.format(v),
         });
-        if (hasIndex) {
-            indexChart = C.drawChart(indexSvg, tipNet, rows, [
-                { key: 'taiex_close', name: '加權指數', color: INDEX },
-            ], {
-                valueText: indexText, axisText: v => C.fmt.format(v), labelText: v => C.fmt.format(Math.round(v)),
-                extraTip: [{ name: '淨額', color: NET, value: r => C.signed(r.net_oi) }],
-                onHover: i => i == null ? netChart.unmark() : netChart.mark(i),
-            });
-        }
         C.renderTable(document.getElementById('table-body'), rows, (r, p) => [
             r.trade_date, C.fmt.format(r.long_oi), C.fmt.format(r.short_oi), C.signed(r.net_oi),
             p ? C.signed(r.net_oi - p.net_oi) : '—', indexText(r.taiex_close),

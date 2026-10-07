@@ -55,11 +55,13 @@
     /**
      * 畫一張單軸圖。
      *
-     * series: [{ key, name, color, type: 'line' | 'bar', label: true|false }]
+     * series: [{ key, name, color, type: 'line' | 'bar', label: true|false, axis: 'left' | 'right' }]
+     *         axis: 'right' 的折線用獨立的右軸刻度（只標數字、不畫格線），長條一律在左軸
      * opts:   { includeZero, valueText(v, s), axisText(v), labelText(v),
      *           xText(r), tipTitle(r),          // 預設 x 軸是 trade_date
      *           grouped,                        // 多組長條並排（預設重疊）
      *           refLines: [{ value, label }],   // 水平參考線
+     *           rightAxisText(v),               // 右軸刻度文字
      *           extraTip: [{ name, color, value: r => text }],
      *           onHover(i | null) }                // 滑鼠移動時通知，用來連動其他圖
      *
@@ -71,7 +73,9 @@
         const width = svg.clientWidth || 800;
         const height = svg.clientHeight || 300;
         svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
-        const m = { top: 12, right: 56, bottom: 26, left: 56 };
+        const rightSeries = series.filter(s => s.axis === 'right');
+        const hasRight = rightSeries.length > 0;
+        const m = { top: 12, right: hasRight ? 64 : 56, bottom: 26, left: 56 };
         const w = width - m.left - m.right;
         const h = height - m.top - m.bottom;
         const n = rows.length;
@@ -83,7 +87,8 @@
         const tipTitle = opts.tipTitle || (r => r.trade_date);
         const refLines = opts.refLines || [];
 
-        const values = rows.flatMap(r => series.map(s => r[s.key])).filter(v => v != null)
+        const leftSeries = series.filter(s => s.axis !== 'right');
+        const values = rows.flatMap(r => leftSeries.map(s => r[s.key])).filter(v => v != null)
             .concat(refLines.map(l => l.value));
         let lo = Math.min(...values), hi = Math.max(...values);
         if (opts.includeZero || hasBars) { lo = Math.min(lo, 0); hi = Math.max(hi, 0); }
@@ -95,6 +100,19 @@
             ? i => m.left + (i + 0.5) * band
             : i => m.left + (n === 1 ? w / 2 : (i / (n - 1)) * w);
         const y = v => m.top + h - ((v - yMin) / (yMax - yMin)) * h;
+
+        let yRight = y;
+        if (hasRight) {
+            const rv = rows.flatMap(r => rightSeries.map(s => r[s.key])).filter(v => v != null);
+            const rTicks = niceTicks(Math.min(...rv), Math.max(...rv), 5);
+            const rMin = rTicks[0], rMax = rTicks[rTicks.length - 1];
+            yRight = v => m.top + h - ((v - rMin) / (rMax - rMin)) * h;
+            const rightAxisText = opts.rightAxisText || shortNum;
+            for (const t of rTicks) {
+                svgEl('text', { x: m.left + w + 8, y: yRight(t) + 4 }, svg).textContent = rightAxisText(t);
+            }
+        }
+        const yOf = s => (s.axis === 'right' ? yRight : y);
 
         for (const t of ticks) {
             const isZero = t === 0 && (opts.includeZero || hasBars);
@@ -109,14 +127,6 @@
                 x: x(i), y: m.top + h + 18,
                 'text-anchor': k === 0 ? 'start' : (k === xTickCount - 1 ? 'end' : 'middle'),
             }, svg).textContent = xText(rows[i]);
-        }
-
-        for (const line of refLines) {
-            svgEl('line', { class: 'ref', x1: m.left, x2: m.left + w, y1: y(line.value), y2: y(line.value) }, svg);
-            if (line.label) {
-                svgEl('text', { class: 'ref-label', x: m.left + 4, y: y(line.value) - 6 }, svg)
-                    .textContent = line.label;
-            }
         }
 
         const barSeries = series.filter(s => s.type === 'bar');
@@ -138,20 +148,32 @@
             });
         });
 
+        // 參考線畫在長條之後，才不會被蓋住
+        for (const line of refLines) {
+            svgEl('line', { class: 'ref', x1: m.left, x2: m.left + w, y1: y(line.value), y2: y(line.value) }, svg);
+            if (line.label) {
+                svgEl('text', { class: 'ref-label', x: m.left + 4, y: y(line.value) - 6 }, svg)
+                    .textContent = line.label;
+            }
+        }
+
         for (const s of series.filter(s => s.type !== 'bar')) {
             let d = '';
             let pen = 'M';
             rows.forEach((r, i) => {
                 const v = r[s.key];
                 if (v == null) { pen = 'M'; return; }
-                d += `${pen}${x(i).toFixed(1)},${y(v).toFixed(1)}`;
+                d += `${pen}${x(i).toFixed(1)},${yOf(s)(v).toFixed(1)}`;
                 pen = 'L';
             });
+            // 疊在長條上的折線先描一圈底色，交錯處才看得清楚
+            if (hasBars) svgEl('path', { class: 'line halo', d }, svg);
             svgEl('path', { class: 'line', d, stroke: s.color }, svg);
         }
 
         // 只在最新一點標數值，不在每個點都標
-        for (const s of series.filter(s => s.label !== false)) {
+        // 右軸的數字已經標在軸上，最新值改由提示框與卡片呈現，避免跟刻度擠在一起
+        for (const s of series.filter(s => s.label !== false && s.axis !== 'right')) {
             const last = rows[n - 1][s.key];
             if (last == null) continue;
             if (s.type !== 'bar') {
@@ -174,7 +196,7 @@
                 if (!dots[j]) return;
                 const v = r[s.key];
                 dots[j].setAttribute('visibility', v == null ? 'hidden' : 'visible');
-                if (v != null) { dots[j].setAttribute('cx', x(i)); dots[j].setAttribute('cy', y(v)); }
+                if (v != null) { dots[j].setAttribute('cx', x(i)); dots[j].setAttribute('cy', yOf(s)(v)); }
             });
         }
         function unmark() {
