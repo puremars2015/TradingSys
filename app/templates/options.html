@@ -239,6 +239,7 @@
                 axisText: v => v + '%',
                 rightAxisText: v => C.fmt.format(v),
                 refLines: [{ value: 100, label: '100%' }],
+                fitRange: true,
                 extraTip: [{ name: '成交量比', color: 'transparent', value: r => pctText(r.volume_ratio) }],
             });
         } else {

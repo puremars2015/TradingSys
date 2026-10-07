@@ -88,12 +88,17 @@
         const refLines = opts.refLines || [];
 
         const leftSeries = series.filter(s => s.axis !== 'right');
+        // fitRange：刻度只依目前視窗內資料的最小/最大值決定（不強制含 0、參考線不撐開刻度）
+        const fit = !!opts.fitRange;
         const values = rows.flatMap(r => leftSeries.map(s => r[s.key])).filter(v => v != null)
-            .concat(refLines.map(l => l.value));
+            .concat(fit ? [] : refLines.map(l => l.value));
         let lo = Math.min(...values), hi = Math.max(...values);
-        if (opts.includeZero || hasBars) { lo = Math.min(lo, 0); hi = Math.max(hi, 0); }
+        if (!fit && (opts.includeZero || hasBars)) { lo = Math.min(lo, 0); hi = Math.max(hi, 0); }
+        if (fit) { const pad = (hi - lo) * 0.05 || 1; lo -= pad; hi += pad; }
         const ticks = niceTicks(lo, hi, 5);
         const yMin = ticks[0], yMax = ticks[ticks.length - 1];
+        // 長條的基準線：0 在範圍內就從 0 長，否則從最靠近 0 的那一邊長
+        const baseV = Math.min(Math.max(0, yMin), yMax);
         // 有長條時用 band 座標，長條才不會超出繪圖區
         const band = w / n;
         const x = hasBars
@@ -104,7 +109,9 @@
         let yRight = y;
         if (hasRight) {
             const rv = rows.flatMap(r => rightSeries.map(s => r[s.key])).filter(v => v != null);
-            const rTicks = niceTicks(Math.min(...rv), Math.max(...rv), 5);
+            let rlo = Math.min(...rv), rhi = Math.max(...rv);
+            const rpad = (rhi - rlo) * 0.05 || 1;
+            const rTicks = niceTicks(rlo - rpad, rhi + rpad, 5);
             const rMin = rTicks[0], rMax = rTicks[rTicks.length - 1];
             yRight = v => m.top + h - ((v - rMin) / (rMax - rMin)) * h;
             const rightAxisText = opts.rightAxisText || shortNum;
@@ -115,7 +122,7 @@
         const yOf = s => (s.axis === 'right' ? yRight : y);
 
         for (const t of ticks) {
-            const isZero = t === 0 && (opts.includeZero || hasBars);
+            const isZero = t === 0 && (opts.includeZero || hasBars || fit);
             svgEl('line', { class: isZero ? 'zero' : 'grid', x1: m.left, x2: m.left + w, y1: y(t), y2: y(t) }, svg);
             svgEl('text', { x: m.left - 8, y: y(t) + 4, 'text-anchor': 'end' }, svg).textContent = axisText(t);
         }
@@ -140,7 +147,7 @@
             rows.forEach((r, i) => {
                 const v = r[s.key];
                 if (v == null) return;
-                const top = y(Math.max(v, 0)), bottom = y(Math.min(v, 0));
+                const top = y(Math.max(v, baseV)), bottom = y(Math.min(v, baseV));
                 svgEl('rect', {
                     x: x(i) + offset - bw / 2, y: top, width: bw, height: Math.max(1, bottom - top),
                     rx: radius, fill: s.color,
@@ -150,6 +157,7 @@
 
         // 參考線畫在長條之後，才不會被蓋住
         for (const line of refLines) {
+            if (line.value < yMin || line.value > yMax) continue;
             svgEl('line', { class: 'ref', x1: m.left, x2: m.left + w, y1: y(line.value), y2: y(line.value) }, svg);
             if (line.label) {
                 svgEl('text', { class: 'ref-label', x: m.left + 4, y: y(line.value) - 6 }, svg)

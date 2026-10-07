@@ -105,6 +105,7 @@
         C.drawChart(document.getElementById('chart-net'), document.getElementById('tip-net'), rows, netSeries, {
             valueText: (v, s) => s.key === 'taiex_close' ? indexText(v) : C.signed(v),
             rightAxisText: v => C.fmt.format(v),
+            fitRange: true,
         });
         C.renderTable(document.getElementById('table-body'), rows, (r, p) => [
             r.trade_date, C.fmt.format(r.long_oi), C.fmt.format(r.short_oi), C.signed(r.net_oi),
