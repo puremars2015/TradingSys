@@ -49,6 +49,8 @@
             <div class="legend"><span>正值 = 淨多單、負值 = 淨空單</span></div>
         </div>
         <svg class="chart net" id="chart-net" role="img" aria-label="外資期貨多空未平倉淨額折線圖"></svg>
+        <div class="panel-label"><i class="key" style="background: var(--text-secondary)"></i>加權指數收盤（點）· 與上圖日期對齊</div>
+        <svg class="chart short" id="chart-net-index" role="img" aria-label="同期間加權指數收盤折線圖"></svg>
         <div class="tooltip" id="tip-net"></div>
     </div>
 
@@ -57,7 +59,7 @@
         <div class="table-wrapper">
             <table>
                 <thead>
-                    <tr><th>日期</th><th>多單</th><th>空單</th><th>淨額</th><th>淨額變化</th></tr>
+                    <tr><th>日期</th><th>多單</th><th>空單</th><th>淨額</th><th>淨額變化</th><th>加權指數</th></tr>
                 </thead>
                 <tbody id="table-body"></tbody>
             </table>
@@ -71,7 +73,8 @@
 <script>
 (function () {
     const C = window.MarketCharts;
-    const LONG = 'var(--series-1)', SHORT = 'var(--series-2)', NET = 'var(--series-3)';
+    const LONG = 'var(--series-1)', SHORT = 'var(--series-2)', NET = 'var(--series-3)', INDEX = 'var(--text-secondary)';
+    const indexText = v => v == null ? '—' : C.fmt2.format(v);
     let allRows = [];
 
     function render(days) {
@@ -92,20 +95,46 @@
             { key: 'long_oi', name: '多單', color: LONG },
             { key: 'short_oi', name: '空單', color: SHORT },
         ], { extraTip: [{ name: '淨額', color: NET, value: r => C.signed(r.net_oi) }] });
-        C.drawChart(document.getElementById('chart-net'), document.getElementById('tip-net'), rows, [
+        // 淨額與加權指數單位不同，分成上下兩張共用日期軸的圖，滑鼠移動時十字線連動
+        const tipNet = document.getElementById('tip-net');
+        const indexSvg = document.getElementById('chart-net-index');
+        const hasIndex = rows.some(r => r.taiex_close != null);
+        indexSvg.style.display = hasIndex ? '' : 'none';
+        document.querySelector('.panel-label').style.display = hasIndex ? '' : 'none';
+        let netChart = null, indexChart = null;
+        const indexTip = [{ name: '加權指數', color: INDEX, value: r => indexText(r.taiex_close) }];
+        netChart = C.drawChart(document.getElementById('chart-net'), tipNet, rows, [
             { key: 'net_oi', name: '淨額', color: NET },
-        ], { includeZero: true, valueText: v => C.signed(v) });
+        ], {
+            includeZero: true, valueText: v => C.signed(v),
+            extraTip: hasIndex ? indexTip : [],
+            onHover: i => indexChart && (i == null ? indexChart.unmark() : indexChart.mark(i)),
+        });
+        if (hasIndex) {
+            indexChart = C.drawChart(indexSvg, tipNet, rows, [
+                { key: 'taiex_close', name: '加權指數', color: INDEX },
+            ], {
+                valueText: indexText, axisText: v => C.fmt.format(v), labelText: v => C.fmt.format(Math.round(v)),
+                extraTip: [{ name: '淨額', color: NET, value: r => C.signed(r.net_oi) }],
+                onHover: i => i == null ? netChart.unmark() : netChart.mark(i),
+            });
+        }
         C.renderTable(document.getElementById('table-body'), rows, (r, p) => [
             r.trade_date, C.fmt.format(r.long_oi), C.fmt.format(r.short_oi), C.signed(r.net_oi),
-            p ? C.signed(r.net_oi - p.net_oi) : '—',
+            p ? C.signed(r.net_oi - p.net_oi) : '—', indexText(r.taiex_close),
         ]);
     }
 
     const currentDays = C.bindRange(render, 90);
-    fetch('/api/foreign-futures')
-        .then(r => r.json())
-        .then(data => {
-            allRows = (data.rows || []).filter(r => r.long_oi != null && r.short_oi != null && r.net_oi != null);
+    Promise.all([
+        fetch('/api/foreign-futures').then(r => r.json()),
+        fetch('/api/taiex').then(r => r.json()).catch(() => ({ rows: [] })),
+    ])
+        .then(([futures, taiex]) => {
+            const closeByDate = Object.fromEntries((taiex.rows || []).map(r => [r.trade_date, r.close]));
+            allRows = (futures.rows || [])
+                .filter(r => r.long_oi != null && r.short_oi != null && r.net_oi != null)
+                .map(r => Object.assign({}, r, { taiex_close: closeByDate[r.trade_date] ?? null }));
             render(currentDays());
         })
         .catch(err => { console.error(err); render(currentDays()); });

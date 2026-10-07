@@ -60,9 +60,11 @@
      *           xText(r), tipTitle(r),          // 預設 x 軸是 trade_date
      *           grouped,                        // 多組長條並排（預設重疊）
      *           refLines: [{ value, label }],   // 水平參考線
-     *           extraTip: [{ name, color, value: r => text }] }
+     *           extraTip: [{ name, color, value: r => text }],
+     *           onHover(i | null) }                // 滑鼠移動時通知，用來連動其他圖
      *
      * 值為 null 的點在折線上會斷開（例如資料不足的均線）。
+     * 回傳 { mark(i), unmark() }：在第 i 筆畫十字線與圓點（不顯示提示框），給連動用。
      */
     function drawChart(svg, tip, rows, series, opts = {}) {
         svg.textContent = '';
@@ -163,13 +165,9 @@
             svgEl('circle', { r: 4, fill: s.color, stroke: 'var(--surface-1)', 'stroke-width': 2, visibility: 'hidden' }, svg));
         const hit = svgEl('rect', { x: m.left, y: m.top, width: w, height: h, fill: 'transparent' }, svg);
 
-        function show(evt) {
-            const rect = svg.getBoundingClientRect();
-            const px = (evt.clientX - rect.left) * (width / rect.width);
-            const i = hasBars
-                ? Math.max(0, Math.min(n - 1, Math.floor((px - m.left) / band)))
-                : Math.max(0, Math.min(n - 1, Math.round(((px - m.left) / w) * (n - 1))));
+        function mark(i) {
             const r = rows[i];
+            if (!r) return unmark();
             cross.setAttribute('x1', x(i)); cross.setAttribute('x2', x(i));
             cross.setAttribute('visibility', 'visible');
             series.forEach((s, j) => {
@@ -178,6 +176,21 @@
                 dots[j].setAttribute('visibility', v == null ? 'hidden' : 'visible');
                 if (v != null) { dots[j].setAttribute('cx', x(i)); dots[j].setAttribute('cy', y(v)); }
             });
+        }
+        function unmark() {
+            cross.setAttribute('visibility', 'hidden');
+            dots.forEach(d => d && d.setAttribute('visibility', 'hidden'));
+        }
+
+        function show(evt) {
+            const rect = svg.getBoundingClientRect();
+            const px = (evt.clientX - rect.left) * (width / rect.width);
+            const i = hasBars
+                ? Math.max(0, Math.min(n - 1, Math.floor((px - m.left) / band)))
+                : Math.max(0, Math.min(n - 1, Math.round(((px - m.left) / w) * (n - 1))));
+            const r = rows[i];
+            mark(i);
+            if (opts.onHover) opts.onHover(i);
 
             tip.textContent = '';
             tip.appendChild(htmlEl('div', 'date', tipTitle(r)));
@@ -196,12 +209,13 @@
         }
         function hide() {
             tip.style.display = 'none';
-            cross.setAttribute('visibility', 'hidden');
-            dots.forEach(d => d && d.setAttribute('visibility', 'hidden'));
+            unmark();
+            if (opts.onHover) opts.onHover(null);
         }
         hit.addEventListener('pointermove', show);
         hit.addEventListener('pointerdown', show);
         hit.addEventListener('pointerleave', hide);
+        return { mark, unmark };
     }
 
     /** tiles: [{ label, color?, value, delta?, small? }] */
