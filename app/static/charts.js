@@ -245,11 +245,16 @@
         container.textContent = '';
         for (const t of tiles) {
             const tile = htmlEl('div', 'tile');
-            const label = htmlEl('div', 'label');
-            if (t.color) label.appendChild(lineKey(t.color));
-            label.appendChild(document.createTextNode(t.label));
-            tile.append(label, htmlEl('div', t.small ? 'value small' : 'value', t.value));
-            if (t.delta != null) tile.appendChild(htmlEl('div', 'delta', t.delta));
+            // 左側小方塊放該數列的線條色，和圖例、圖上的線對應
+            if (t.color) {
+                const icon = htmlEl('div', 'tile-icon');
+                icon.appendChild(lineKey(t.color));
+                tile.appendChild(icon);
+            }
+            const body = htmlEl('div', 'tile-body');
+            body.append(htmlEl('div', 'label', t.label), htmlEl('div', t.small ? 'value small' : 'value', t.value));
+            if (t.delta != null) body.appendChild(htmlEl('div', 'delta', t.delta));
+            tile.appendChild(body);
             container.appendChild(tile);
         }
     }
@@ -303,7 +308,15 @@
         }
     }
 
+    /** 頁首「資料日期」小標籤（#asof）。 */
+    function setAsOf(date, id = 'asof') {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.textContent = date ? `資料日期 ${date}` : '';
+        el.style.display = date ? '' : 'none';
+    }
+
     window.MarketCharts = {
-        fmt, fmt2, signed, shortNum, drawChart, renderTiles, renderTable, filterByDays, bindRange, showEmpty,
+        fmt, fmt2, signed, shortNum, drawChart, renderTiles, renderTable, filterByDays, bindRange, showEmpty, setAsOf,
     };
 })();

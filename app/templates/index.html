@@ -1,247 +1,60 @@
-<!DOCTYPE html>
-<html lang="zh-TW">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TradingView Signal Bot</title>
-    <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            background: #1a1a2e;
-            color: #eee;
-            min-height: 100vh;
-            padding: 20px;
-        }
-        .container {
-            max-width: 1400px;
-            margin: 0 auto;
-        }
-        h1 {
-            text-align: center;
-            margin-bottom: 30px;
-            color: #00d4ff;
-        }
-        .status {
-            background: #16213e;
-            border-radius: 10px;
-            padding: 20px;
-            margin-bottom: 20px;
-        }
-        .status h2 {
-            color: #00d4ff;
-            margin-bottom: 15px;
-        }
-        .status-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 15px;
-        }
-        .status-item {
-            background: #0f3460;
-            padding: 15px;
-            border-radius: 8px;
-        }
-        .status-item label {
-            display: block;
-            color: #888;
-            font-size: 12px;
-            margin-bottom: 5px;
-        }
-        .status-item value {
-            display: block;
-            font-size: 18px;
-            font-weight: bold;
-        }
-        .signal-table {
-            width: 100%;
-            min-width: 1180px;
-            background: #16213e;
-            border-radius: 10px;
-            overflow: hidden;
-            margin-top: 20px;
-        }
-        .signal-table th, .signal-table td {
-            padding: 15px 18px;
-            text-align: left;
-            border-bottom: 1px solid #0f3460;
-        }
-        .signal-table th {
-            background: #0f3460;
-            color: #00d4ff;
-        }
-        .signal-table tr:hover {
-            background: #0f3460;
-        }
-        .badge {
-            display: inline-block;
-            padding: 4px 10px;
-            border-radius: 4px;
-            font-size: 12px;
-            font-weight: bold;
-        }
-        .badge-long {
-            background: #00c853;
-            color: #fff;
-        }
-        .badge-short {
-            background: #ff1744;
-            color: #fff;
-        }
-        .badge-none {
-            background: #666;
-            color: #fff;
-        }
-        .badge-strong {
-            background: #ff9100;
-            color: #fff;
-        }
-        .badge-active {
-            background: #00d4ff;
-            color: #000;
-        }
-        .endpoints {
-            background: #16213e;
-            border-radius: 10px;
-            padding: 20px;
-            margin-top: 20px;
-        }
-        .endpoints h2 {
-            color: #00d4ff;
-            margin-bottom: 15px;
-        }
-        .table-wrapper {
-            width: 100%;
-            overflow-x: auto;
-            margin-top: 20px;
-            border-radius: 10px;
-        }
-        .endpoint {
-            background: #0f3460;
-            padding: 15px;
-            border-radius: 8px;
-            margin-bottom: 10px;
-        }
-        .endpoint code {
-            display: block;
-            background: #1a1a2e;
-            padding: 10px;
-            border-radius: 4px;
-            margin-top: 8px;
-            font-size: 13px;
-            overflow-x: auto;
-        }
-        .footer {
-            text-align: center;
-            margin-top: 30px;
-            color: #666;
-            font-size: 14px;
-        }
-        .pagination {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            gap: 8px;
-            margin-top: 20px;
-            flex-wrap: wrap;
-        }
-        .page-btn {
-            display: inline-block;
-            padding: 8px 14px;
-            background: #0f3460;
-            color: #00d4ff;
-            border-radius: 6px;
-            text-decoration: none;
-            font-size: 14px;
-            border: 1px solid #00d4ff;
-            transition: background 0.2s;
-        }
-        .page-btn:hover {
-            background: #00d4ff;
-            color: #000;
-        }
-        .page-btn.disabled {
-            color: #666;
-            border-color: #333;
-            pointer-events: none;
-        }
-        .page-num {
-            display: inline-block;
-            min-width: 34px;
-            padding: 8px 10px;
-            text-align: center;
-            background: #0f3460;
-            color: #00d4ff;
-            border-radius: 6px;
-            text-decoration: none;
-            font-size: 14px;
-            border: 1px solid #0f3460;
-        }
-        .page-num:hover {
-            border-color: #00d4ff;
-        }
-        .page-num.active {
-            background: #00d4ff;
-            color: #000;
-            font-weight: bold;
-        }
-        .page-info {
-            color: #888;
-            font-size: 14px;
-            margin: 0 6px;
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h1>📊 TradingView Signal Bot</h1>
-        <p style="text-align: center; margin: -18px 0 24px;"><a href="/taiex" style="color: #00d4ff;">📈 加權指數與成交量 →</a>　<a href="/foreign-futures" style="color: #00d4ff;">📊 外資期貨留倉走勢 →</a>　<a href="/options" style="color: #00d4ff;">🎯 選擇權未平倉 →</a></p>
-        
-        <div class="status">
-            <h2>系統狀態</h2>
-            <div class="status-grid">
-                <div class="status-item">
-                    <label>服務狀態</label>
-                    <value style="color: {% if healthy %}#00c853{% else %}#ff1744{% endif %};">
-                        {% if healthy %}✅ 運行中{% else %}❌ 異常{% endif %}
-                    </value>
-                </div>
-                <div class="status-item">
-                    <label>資料庫</label>
-                    <value style="color: {% if healthy %}#00c853{% else %}#ff1744{% endif %};">
-                        {% if healthy %}✅ 正常{% else %}❌ 異常{% endif %}
-                    </value>
-                </div>
-                <div class="status-item">
-                    <label>最新標的</label>
-                    <value>{{ latest_signal.symbol if latest_signal else 'N/A' }}</value>
-                </div>
-                <div class="status-item">
-                    <label>最新建議</label>
-                    <value>{{ latest_signal.recommendation if latest_signal else 'N/A' }}</value>
-                </div>
-                <div class="status-item">
-                    <label>訊號強度</label>
-                    <value>{{ latest_signal.signal_strength if latest_signal else 'N/A' }}</value>
-                </div>
-                <div class="status-item">
-                    <label>資料筆數</label>
-                    <value>{{ db_records if healthy else 'N/A' }}</value>
-                </div>
-            </div>
+{% extends 'base.html' %}
+{% block title %}訊號儀表板{% endblock %}
+{% block header_kicker %}總覽{% endblock %}
+{% block header_title %}訊號儀表板{% endblock %}
+{% block header_chip %}Webhook：POST /webhook/kd-sma{% endblock %}
+
+{% macro tile(label, value, delta=None, status=None) -%}
+<div class="tile">
+    {% if status %}<div class="tile-icon"><span class="status-dot {{ 'ok' if status == 'ok' else 'bad' }}"></span></div>{% endif %}
+    <div class="tile-body">
+        <div class="label">{{ label }}</div>
+        <div class="value small">{{ value }}</div>
+        {% if delta %}<div class="delta">{{ delta }}</div>{% endif %}
+    </div>
+</div>
+{%- endmacro %}
+
+{% macro recommendation_badge(value) -%}
+{% if value == '做多' %}<span class="badge badge-success">做多</span>
+{% elif value == '做空' %}<span class="badge badge-danger">做空</span>
+{% elif value == '持有' %}<span class="badge badge-info">持有</span>
+{% else %}<span class="badge badge-muted">{{ value or '無' }}</span>{% endif %}
+{%- endmacro %}
+
+{% macro strength_badge(value) -%}
+{% if value == '強烈' %}<span class="badge badge-warning">強烈</span>
+{% elif value in ['積極', '建議', '持續'] %}<span class="badge badge-info">{{ value }}</span>
+{% else %}<span class="badge badge-muted">{{ value or '無' }}</span>{% endif %}
+{%- endmacro %}
+
+{% block content %}
+<section class="page-hero">
+    <span class="kicker">Signal Center</span>
+    <h1>訊號儀表板</h1>
+    <p class="subtitle">接收 TradingView KDJ 多週期指標的 webhook，分析 1H / 4H / 1D 的 KD 交叉並以 1H 均線排列加權，推播交易建議到 Telegram。</p>
+    <div class="tiles">
+        {{ tile('服務狀態', '運行中' if healthy else '異常', status='ok' if healthy else 'bad') }}
+        {{ tile('資料庫', '正常' if healthy else '異常', (db_records ~ ' 筆訊號') if healthy else None, status='ok' if healthy else 'bad') }}
+        {{ tile('最新建議', latest_signal.recommendation if latest_signal else 'N/A',
+                (latest_signal.symbol ~ '・' ~ (latest_signal.received_at|taiwan_time)) if latest_signal else None) }}
+        {{ tile('訊號強度', latest_signal.signal_strength if latest_signal else 'N/A') }}
+    </div>
+</section>
+
+<div class="card">
+    <div class="card-head">
+        <div>
+            <span class="kicker">Signal Stream</span>
+            <h2>最近訊號</h2>
         </div>
-        
-        <div class="table-wrapper">
-        <table class="signal-table">
+        <span class="muted">第 {{ page }} / {{ total_pages }} 頁 · 共 {{ db_records }} 筆</span>
+    </div>
+    <div class="table-wrapper tall">
+        <table>
             <thead>
                 <tr>
                     <th>時間</th>
-                    <th>Webhook 端點</th>
                     <th>標的</th>
                     <th>價格</th>
                     <th>1H K/D</th>
@@ -256,12 +69,11 @@
                 {% for signal in recent_signals %}
                 <tr>
                     <td>{{ signal.received_at|taiwan_time }}</td>
-                    <td><code>POST /webhook/kd-sma</code></td>
                     <td>{{ signal.symbol }}</td>
-                    <td>{{ signal.price }}</td>
-                    <td>{{ "%.2f"|format(signal.k_60m) if signal.k_60m else 'N/A' }} / {{ "%.2f"|format(signal.d_60m) if signal.d_60m else 'N/A' }}</td>
-                    <td>{{ "%.2f"|format(signal.k_4h) if signal.k_4h else 'N/A' }} / {{ "%.2f"|format(signal.d_4h) if signal.d_4h else 'N/A' }}</td>
-                    <td>{{ "%.2f"|format(signal.k_1d) if signal.k_1d else 'N/A' }} / {{ "%.2f"|format(signal.d_1d) if signal.d_1d else 'N/A' }}</td>
+                    <td>{{ signal.price if signal.price is not none else 'N/A' }}</td>
+                    <td>{{ "%.2f"|format(signal.k_60m) if signal.k_60m is not none else 'N/A' }} / {{ "%.2f"|format(signal.d_60m) if signal.d_60m is not none else 'N/A' }}</td>
+                    <td>{{ "%.2f"|format(signal.k_4h) if signal.k_4h is not none else 'N/A' }} / {{ "%.2f"|format(signal.d_4h) if signal.d_4h is not none else 'N/A' }}</td>
+                    <td>{{ "%.2f"|format(signal.k_1d) if signal.k_1d is not none else 'N/A' }} / {{ "%.2f"|format(signal.d_1d) if signal.d_1d is not none else 'N/A' }}</td>
                     <td>
                         {% if signal.sma10 and signal.sma60 and signal.sma120 and signal.sma720 %}
                             {% if signal.sma10 > signal.sma60 > signal.sma120 > signal.sma720 %}多頭
@@ -269,65 +81,40 @@
                             {% else %}糾結{% endif %}
                         {% else %}N/A{% endif %}
                     </td>
-                    <td>
-                        {% if signal.recommendation == '做多' %}
-                        <span class="badge badge-long">做多</span>
-                        {% elif signal.recommendation == '做空' %}
-                        <span class="badge badge-short">做空</span>
-                        {% elif signal.recommendation == '持有' %}
-                        <span class="badge badge-active">持有</span>
-                        {% else %}
-                        <span class="badge badge-none">無</span>
-                        {% endif %}
-                    </td>
-                    <td>
-                        {% if signal.signal_strength == '強烈' %}
-                        <span class="badge badge-strong">強烈</span>
-                        {% elif signal.signal_strength in ['積極', '建議'] %}
-                        <span class="badge badge-active">{{ signal.signal_strength }}</span>
-                        {% else %}
-                        <span class="badge badge-none">{{ signal.signal_strength or '無' }}</span>
-                        {% endif %}
-                    </td>
+                    <td>{{ recommendation_badge(signal.recommendation) }}</td>
+                    <td>{{ strength_badge(signal.signal_strength) }}</td>
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="10" style="text-align: center; color: #888;">暫無資料</td>
+                    <td colspan="9" class="muted" style="text-align: center;">暫無資料</td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
-        </div>
-
-        {% if total_pages > 1 %}
-        <div class="pagination">
-            {% if page > 1 %}
-            <a class="page-btn" href="?page={{ page - 1 }}">← 上一頁</a>
-            {% else %}
-            <span class="page-btn disabled">← 上一頁</span>
-            {% endif %}
-
-            {% for p in pages %}
-                {% if p == page %}
-                <span class="page-num active">{{ p }}</span>
-                {% else %}
-                <a class="page-num" href="?page={{ p }}">{{ p }}</a>
-                {% endif %}
-            {% endfor %}
-
-            {% if page < total_pages %}
-            <a class="page-btn" href="?page={{ page + 1 }}">下一頁 →</a>
-            {% else %}
-            <span class="page-btn disabled">下一頁 →</span>
-            {% endif %}
-
-            <span class="page-info">第 {{ page }} / {{ total_pages }} 頁 · 共 {{ db_records }} 筆</span>
-        </div>
-        {% endif %}
-        
-        <div class="footer">
-            <p>TradingView Signal Bot © 2026</p>
-        </div>
     </div>
-</body>
-</html>
+
+    {% if total_pages > 1 %}
+    <nav class="pagination" aria-label="分頁">
+        {% if page > 1 %}
+        <a class="page-btn" href="?page={{ page - 1 }}">← 上一頁</a>
+        {% else %}
+        <span class="page-btn disabled">← 上一頁</span>
+        {% endif %}
+
+        {% for p in pages %}
+            {% if p == page %}
+            <span class="page-num active" aria-current="page">{{ p }}</span>
+            {% else %}
+            <a class="page-num" href="?page={{ p }}">{{ p }}</a>
+            {% endif %}
+        {% endfor %}
+
+        {% if page < total_pages %}
+        <a class="page-btn" href="?page={{ page + 1 }}">下一頁 →</a>
+        {% else %}
+        <span class="page-btn disabled">下一頁 →</span>
+        {% endif %}
+    </nav>
+    {% endif %}
+</div>
+{% endblock %}

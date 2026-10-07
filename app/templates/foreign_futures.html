@@ -1,80 +1,84 @@
-<!DOCTYPE html>
-<html lang="zh-TW">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>外資期貨留倉</title>
-    <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
-    <link rel="stylesheet" href="/static/charts.css">
-</head>
-<body>
-<div class="container">
-    <div class="topbar">
+{% extends 'base.html' %}
+{% block title %}外資期貨留倉{% endblock %}
+{% block header_kicker %}行情監控{% endblock %}
+{% block header_title %}外資期貨留倉{% endblock %}
+{% block header_chip %}資料來源：臺灣期貨交易所{% endblock %}
+
+{% block content %}
+<section class="page-hero">
+    <div class="hero-top">
         <div>
+            <span class="kicker">Foreign Futures OI</span>
             <h1>外資期貨留倉</h1>
-            <div class="subtitle">外資及陸資 · {{ commodity }} 未平倉口數 · 資料來源：臺灣期貨交易所 三大法人</div>
+            <p class="subtitle">外資及陸資 {{ commodity }} 未平倉多單、空單與淨額，對照同期間加權指數收盤。每個交易日 15:00 後自動更新。</p>
         </div>
-        <nav class="topnav">
-            <a href="/">訊號儀表板</a>
-            <a href="/taiex">加權指數</a>
-            <a href="/options">選擇權</a>
-        </nav>
-    </div>
-
-    <div class="filters" role="group" aria-label="時間範圍">
-        <button type="button" data-days="30">1 個月</button>
-        <button type="button" data-days="90" aria-pressed="true">3 個月</button>
-        <button type="button" data-days="180">6 個月</button>
-        <button type="button" data-days="365">1 年</button>
-        <button type="button" data-days="0">全部</button>
-    </div>
-
-    <div class="tiles" id="tiles"></div>
-
-    <div class="card">
-        <div class="card-head">
-            <h2>多單 vs 空單（口）</h2>
-            <div class="legend">
-                <span><i class="key" style="background: var(--series-1)"></i>多單</span>
-                <span><i class="key" style="background: var(--series-2)"></i>空單</span>
+        <div class="hero-actions">
+            <span class="asof" id="asof" style="display: none"></span>
+            <div class="filters" role="group" aria-label="時間範圍">
+            <button type="button" data-days="30">1M</button>
+            <button type="button" data-days="90" aria-pressed="true">3M</button>
+            <button type="button" data-days="180">6M</button>
+            <button type="button" data-days="365">1Y</button>
+            <button type="button" data-days="0">全部</button>
             </div>
         </div>
+    </div>
+    <div class="tiles" id="tiles"></div>
+</section>
+
+<div class="card">
+    <div class="card-head">
+        <div>
+            <span class="kicker">Open Interest</span>
+            <h2>多單 vs 空單（口）</h2>
+        </div>
+        <div class="legend">
+            <span><i class="key" style="background: var(--series-1)"></i>多單</span>
+            <span><i class="key" style="background: var(--series-2)"></i>空單</span>
+        </div>
+    </div>
+    <div class="card-body">
         <svg class="chart" id="chart-oi" role="img" aria-label="外資期貨多單與空單未平倉口數折線圖"></svg>
         <div class="tooltip" id="tip-oi"></div>
     </div>
+</div>
 
-    <div class="card">
-        <div class="card-head">
+<div class="card">
+    <div class="card-head">
+        <div>
+            <span class="kicker">Net Position</span>
             <h2>多空淨額 vs 加權指數</h2>
-            <div class="legend">
-                <span><i class="key box" style="background: var(--series-3)"></i>淨額（左軸 口，正 = 淨多、負 = 淨空）</span>
-                <span id="legend-index"><i class="key" style="background: var(--text-primary)"></i>加權指數收盤（右軸 點）</span>
-            </div>
         </div>
+        <div class="legend">
+            <span><i class="key box" style="background: var(--series-3)"></i>淨額（左軸 口，正 = 淨多、負 = 淨空）</span>
+            <span id="legend-index"><i class="key" style="background: var(--price-line)"></i>加權指數收盤（右軸 點）</span>
+        </div>
+    </div>
+    <div class="card-body">
         <svg class="chart" id="chart-net" role="img" aria-label="外資期貨多空未平倉淨額直條圖，疊加加權指數收盤折線"></svg>
         <div class="tooltip" id="tip-net"></div>
     </div>
-
-    <details>
-        <summary>資料表</summary>
-        <div class="table-wrapper">
-            <table>
-                <thead>
-                    <tr><th>日期</th><th>多單</th><th>空單</th><th>淨額</th><th>淨額變化</th><th>加權指數</th></tr>
-                </thead>
-                <tbody id="table-body"></tbody>
-            </table>
-        </div>
-    </details>
-
-    <div class="footer">每個交易日 15:00 後自動抓取期交所資料</div>
 </div>
 
+<details class="card">
+    <summary>資料表</summary>
+    <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr><th>日期</th><th>多單</th><th>空單</th><th>淨額</th><th>淨額變化</th><th>加權指數</th></tr>
+            </thead>
+            <tbody id="table-body"></tbody>
+        </table>
+    </div>
+</details>
+{% endblock %}
+
+{% block scripts %}
 <script src="/static/charts.js"></script>
 <script>
 (function () {
     const C = window.MarketCharts;
-    const LONG = 'var(--series-1)', SHORT = 'var(--series-2)', NET = 'var(--series-3)', INDEX = 'var(--text-primary)';
+    const LONG = 'var(--series-1)', SHORT = 'var(--series-2)', NET = 'var(--series-3)', INDEX = 'var(--price-line)';
     const indexText = v => v == null ? '—' : C.fmt2.format(v);
     let allRows = [];
 
@@ -85,13 +89,13 @@
             return C.showEmpty(['chart-oi', 'chart-net'], 'python -m app.services.foreign_futures --backfill 365');
         }
         const last = rows[rows.length - 1], prev = rows[rows.length - 2];
+        C.setAsOf(last.trade_date);
         const delta = key => prev ? `較前一日 ${C.signed(last[key] - prev[key])} 口` : '—';
         C.renderTiles(document.getElementById('tiles'), [
             { label: '多單', color: LONG, value: C.fmt.format(last.long_oi), delta: delta('long_oi') },
             { label: '空單', color: SHORT, value: C.fmt.format(last.short_oi), delta: delta('short_oi') },
             { label: '淨額', color: NET, value: C.signed(last.net_oi), delta: delta('net_oi') },
             ...(last.taiex_close != null ? [{ label: '加權指數', color: INDEX, value: indexText(last.taiex_close) }] : []),
-            { label: '最新交易日', value: last.trade_date, small: true },
         ]);
         C.drawChart(document.getElementById('chart-oi'), document.getElementById('tip-oi'), rows, [
             { key: 'long_oi', name: '多單', color: LONG },
@@ -127,5 +131,4 @@
         .catch(err => { console.error(err); render(currentDays()); });
 })();
 </script>
-</body>
-</html>
+{% endblock %}

@@ -126,7 +126,9 @@ curl -X POST http://localhost:8081/webhook/kd-sma \
 ## 每日行情資料(加權指數、外資期貨留倉、選擇權未平倉)
 
 - 排程:`app/market_data_scheduler.py` 一條背景執行緒跑所有每日任務。啟動先各同步一次(DB 空的會往回補一年),之後平日台北時間「公布時間–21:00」每 30 分鐘檢查,今天的資料進來就停(加權指數 14:00 起、外資期貨與選擇權 15:00 起)
-- 圖表:`app/static/charts.js` + `charts.css` 是所有看板共用的 SVG 圖表工具(無外部函式庫),支援折線、長條(可並排)、類別 x 軸、水平參考線
+- **版型**:所有頁面 `{% extends 'base.html' %}`(左側欄 + 頂部列 + 頁尾,設計參考 BootstrapMade AppDashboard 的配色/字體/間距,只取設計數值、沒有用它的 CSS/JS/圖片)。新頁面要加進 `base.html` 的 `nav_groups`
+- 樣式全在 `app/static/app.css`:淺色預設、`[data-theme="dark"]` 深色;主題由 `base.html` 開頭的 script 依 localStorage → 系統設定決定,頂部列按鈕切換。圖表色(`--series-1/2/3`、`--price-line`)淺深兩組都驗證過
+- 圖表:`app/static/charts.js` 是所有看板共用的 SVG 圖表工具(無外部函式庫),支援折線、長條(可並排)、類別 x 軸、水平參考線;`renderTiles` 產生 KPI 卡片、`setAsOf` 設定頁首的「資料日期」
 - **直條 + 折線的雙軸對照圖**(使用者指定要放同一張圖):直條在左軸、`axis: 'right'` 的折線在右軸(只標刻度不畫格線,疊在直條上會描一圈底色)。圖例要寫明「左軸 / 右軸」與單位。目前用在外資期貨淨額(直條)+ 加權指數(折線)、P/C 未平倉量比(直條)+ 台指期近月收盤(折線)
 - `drawChart` 也支援 `onHover` + 回傳 `mark/unmark`,可讓兩張共用日期軸的圖十字線連動
 - 期交所 CSV 下載共用 `app/services/taifex_client.py`(Big5 解碼、找表頭、分段補資料)

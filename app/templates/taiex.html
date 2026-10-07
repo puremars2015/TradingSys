@@ -1,76 +1,80 @@
-<!DOCTYPE html>
-<html lang="zh-TW">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>加權指數看板</title>
-    <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
-    <link rel="stylesheet" href="/static/charts.css">
-</head>
-<body>
-<div class="container">
-    <div class="topbar">
+{% extends 'base.html' %}
+{% block title %}加權指數{% endblock %}
+{% block header_kicker %}行情監控{% endblock %}
+{% block header_title %}加權指數與成交量{% endblock %}
+{% block header_chip %}資料來源：臺灣證券交易所{% endblock %}
+
+{% block content %}
+<section class="page-hero">
+    <div class="hero-top">
         <div>
+            <span class="kicker">TAIEX</span>
             <h1>加權指數與成交量</h1>
-            <div class="subtitle">發行量加權股價指數（收盤）· 集中市場每日成交金額 · 資料來源：臺灣證券交易所</div>
+            <p class="subtitle">發行量加權股價指數收盤、20 / 60 日均線，與集中市場每日成交金額。每個交易日 14:00 後自動更新。</p>
         </div>
-        <nav class="topnav">
-            <a href="/">訊號儀表板</a>
-            <a href="/foreign-futures">外資期貨留倉</a>
-            <a href="/options">選擇權</a>
-        </nav>
-    </div>
-
-    <div class="filters" role="group" aria-label="時間範圍">
-        <button type="button" data-days="30">1 個月</button>
-        <button type="button" data-days="90" aria-pressed="true">3 個月</button>
-        <button type="button" data-days="180">6 個月</button>
-        <button type="button" data-days="365">1 年</button>
-        <button type="button" data-days="0">全部</button>
-    </div>
-
-    <div class="tiles" id="tiles"></div>
-
-    <div class="card">
-        <div class="card-head">
-            <h2>加權指數（點）</h2>
-            <div class="legend">
-                <span><i class="key" style="background: var(--series-1)"></i>收盤</span>
-                <span><i class="key" style="background: var(--series-2)"></i>MA20</span>
-                <span><i class="key" style="background: var(--series-3)"></i>MA60</span>
+        <div class="hero-actions">
+            <span class="asof" id="asof" style="display: none"></span>
+            <div class="filters" role="group" aria-label="時間範圍">
+            <button type="button" data-days="30">1M</button>
+            <button type="button" data-days="90" aria-pressed="true">3M</button>
+            <button type="button" data-days="180">6M</button>
+            <button type="button" data-days="365">1Y</button>
+            <button type="button" data-days="0">全部</button>
             </div>
         </div>
+    </div>
+    <div class="tiles" id="tiles"></div>
+</section>
+
+<div class="card">
+    <div class="card-head">
+        <div>
+            <span class="kicker">Index</span>
+            <h2>加權指數（點）</h2>
+        </div>
+        <div class="legend">
+            <span><i class="key" style="background: var(--series-1)"></i>收盤</span>
+            <span><i class="key" style="background: var(--series-2)"></i>MA20</span>
+            <span><i class="key" style="background: var(--series-3)"></i>MA60</span>
+        </div>
+    </div>
+    <div class="card-body">
         <svg class="chart" id="chart-index" role="img" aria-label="加權指數收盤與 20、60 日均線折線圖"></svg>
         <div class="tooltip" id="tip-index"></div>
     </div>
+</div>
 
-    <div class="card">
-        <div class="card-head">
+<div class="card">
+    <div class="card-head">
+        <div>
+            <span class="kicker">Turnover</span>
             <h2>每日成交金額（億元）</h2>
-            <div class="legend">
-                <span><i class="key box" style="background: var(--series-1)"></i>成交金額</span>
-                <span><i class="key" style="background: var(--series-2)"></i>5 日均量</span>
-            </div>
         </div>
+        <div class="legend">
+            <span><i class="key box" style="background: var(--series-1)"></i>成交金額</span>
+            <span><i class="key" style="background: var(--series-2)"></i>5 日均量</span>
+        </div>
+    </div>
+    <div class="card-body">
         <svg class="chart net" id="chart-volume" role="img" aria-label="集中市場每日成交金額長條圖與 5 日均量"></svg>
         <div class="tooltip" id="tip-volume"></div>
     </div>
-
-    <details>
-        <summary>資料表</summary>
-        <div class="table-wrapper">
-            <table>
-                <thead>
-                    <tr><th>日期</th><th>收盤</th><th>漲跌</th><th>漲跌幅</th><th>成交金額(億)</th><th>成交股數(億股)</th><th>成交筆數</th></tr>
-                </thead>
-                <tbody id="table-body"></tbody>
-            </table>
-        </div>
-    </details>
-
-    <div class="footer">每個交易日 14:00 後自動抓取證交所資料</div>
 </div>
 
+<details class="card">
+    <summary>資料表</summary>
+    <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr><th>日期</th><th>收盤</th><th>漲跌</th><th>漲跌幅</th><th>成交金額(億)</th><th>成交股數(億股)</th><th>成交筆數</th></tr>
+            </thead>
+            <tbody id="table-body"></tbody>
+        </table>
+    </div>
+</details>
+{% endblock %}
+
+{% block scripts %}
 <script src="/static/charts.js"></script>
 <script>
 (function () {
@@ -110,6 +114,7 @@
             return C.showEmpty(['chart-index', 'chart-volume'], 'python -m app.services.taiex --backfill 365');
         }
         const last = rows[rows.length - 1];
+        C.setAsOf(last.trade_date);
         const vsMa = ma => ma != null ? `收盤${last.close >= ma ? '高於' : '低於'}均線 ${pct((last.close / ma - 1) * 100)}` : '資料不足';
         C.renderTiles(document.getElementById('tiles'), [
             {
@@ -122,7 +127,6 @@
             },
             { label: 'MA20', color: S2, value: last.ma20 != null ? C.fmt2.format(last.ma20) : '—', delta: vsMa(last.ma20) },
             { label: 'MA60', color: S3, value: last.ma60 != null ? C.fmt2.format(last.ma60) : '—', delta: vsMa(last.ma60) },
-            { label: '最新交易日', value: last.trade_date, small: true },
         ]);
         C.drawChart(document.getElementById('chart-index'), document.getElementById('tip-index'), rows, [
             { key: 'close', name: '收盤', color: S1 },
@@ -158,5 +162,4 @@
         .catch(err => { console.error(err); render(currentDays()); });
 })();
 </script>
-</body>
-</html>
+{% endblock %}

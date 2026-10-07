@@ -1,114 +1,132 @@
-<!DOCTYPE html>
-<html lang="zh-TW">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>選擇權未平倉</title>
-    <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
-    <link rel="stylesheet" href="/static/charts.css">
-</head>
-<body>
-<div class="container">
-    <div class="topbar">
-        <div>
-            <h1>台指選擇權未平倉</h1>
-            <div class="subtitle">TXO · 外資留倉、全市場 Put/Call 比、各履約價未平倉 · 資料來源：臺灣期貨交易所</div>
-        </div>
-        <nav class="topnav">
-            <a href="/">訊號儀表板</a>
-            <a href="/taiex">加權指數</a>
-            <a href="/foreign-futures">外資期貨留倉</a>
-        </nav>
-    </div>
+{% extends 'base.html' %}
+{% block title %}選擇權未平倉{% endblock %}
+{% block header_kicker %}行情監控{% endblock %}
+{% block header_title %}台指選擇權未平倉{% endblock %}
+{% block header_chip %}資料來源：臺灣期貨交易所{% endblock %}
 
-    <!-- ── 各履約價未平倉 ─────────────────────────────── -->
-    <h2 class="section-title">各履約價未平倉</h2>
-    <div class="filters">
-        <select id="strike-date" aria-label="交易日"></select>
-        <select id="strike-expiry" aria-label="到期"></select>
+{% block content %}
+<section class="page-hero">
+    <span class="kicker">TXO Open Interest</span>
+    <h1>台指選擇權未平倉</h1>
+    <p class="subtitle">各履約價 Call / Put 未平倉分布、外資選擇權留倉，以及全市場 Put/Call Ratio 對照台指期近月收盤。每個交易日 15:00 後自動更新。</p>
+</section>
+
+<!-- ── 各履約價未平倉 ─────────────────────────────── -->
+<div class="section-title">
+    <div>
+        <span class="kicker">Strike Distribution</span>
+        <h2>各履約價未平倉</h2>
     </div>
-    <div class="tiles" id="tiles-strike"></div>
-    <div class="card">
-        <div class="card-head">
-            <h2>Call / Put 未平倉（口）</h2>
-            <div class="legend">
-                <span><i class="key box" style="background: var(--series-1)"></i>Call</span>
-                <span><i class="key box" style="background: var(--series-2)"></i>Put</span>
-            </div>
+</div>
+<div class="select-row">
+    <select id="strike-date" aria-label="交易日"></select>
+    <select id="strike-expiry" aria-label="到期"></select>
+</div>
+<div class="tiles" id="tiles-strike"></div>
+<div class="card">
+    <div class="card-head">
+        <div>
+            <span class="kicker">Call / Put</span>
+            <h2>各履約價未平倉（口）</h2>
         </div>
+        <div class="legend">
+            <span><i class="key box" style="background: var(--series-1)"></i>Call</span>
+            <span><i class="key box" style="background: var(--series-2)"></i>Put</span>
+        </div>
+    </div>
+    <div class="card-body">
         <svg class="chart" id="chart-strike" role="img" aria-label="各履約價買權與賣權未平倉量長條圖"></svg>
         <div class="tooltip" id="tip-strike"></div>
     </div>
-    <details>
-        <summary>資料表</summary>
-        <div class="table-wrapper">
-            <table>
-                <thead><tr><th>履約價</th><th>Call 未平倉</th><th>Call 增減</th><th>Put 未平倉</th><th>Put 增減</th><th>Call 結算</th><th>Put 結算</th></tr></thead>
-                <tbody id="table-strike"></tbody>
-            </table>
-        </div>
-    </details>
+</div>
+<details class="card">
+    <summary>履約價資料表</summary>
+    <div class="table-wrapper">
+        <table>
+            <thead><tr><th>履約價</th><th>Call 未平倉</th><th>Call 增減</th><th>Put 未平倉</th><th>Put 增減</th><th>Call 結算</th><th>Put 結算</th></tr></thead>
+            <tbody id="table-strike"></tbody>
+        </table>
+    </div>
+</details>
 
-    <!-- ── 時間序列（外資留倉、P/C）───────────────────── -->
-    <h2 class="section-title">外資選擇權留倉與 P/C Ratio 走勢</h2>
+<!-- ── 時間序列（外資留倉、P/C）───────────────────── -->
+<div class="section-title">
+    <div>
+        <span class="kicker">Trend</span>
+        <h2>外資選擇權留倉與 P/C Ratio</h2>
+    </div>
+    <div class="hero-actions">
+    <span class="asof" id="asof" style="display: none"></span>
     <div class="filters" role="group" aria-label="時間範圍">
-        <button type="button" data-days="30">1 個月</button>
-        <button type="button" data-days="90" aria-pressed="true">3 個月</button>
-        <button type="button" data-days="180">6 個月</button>
-        <button type="button" data-days="365">1 年</button>
+        <button type="button" data-days="30">1M</button>
+        <button type="button" data-days="90" aria-pressed="true">3M</button>
+        <button type="button" data-days="180">6M</button>
+        <button type="button" data-days="365">1Y</button>
         <button type="button" data-days="0">全部</button>
     </div>
+    </div>
+</div>
+<div class="tiles" id="tiles-series"></div>
 
-    <div class="tiles" id="tiles-series"></div>
-
-    <div class="card">
-        <div class="card-head">
+<div class="card">
+    <div class="card-head">
+        <div>
+            <span class="kicker">Foreign Investors</span>
             <h2>外資未平倉淨金額（億元）</h2>
-            <div class="legend">
-                <span><i class="key" style="background: var(--series-1)"></i>買權淨額</span>
-                <span><i class="key" style="background: var(--series-2)"></i>賣權淨額</span>
-            </div>
         </div>
+        <div class="legend">
+            <span><i class="key" style="background: var(--series-1)"></i>買權淨額</span>
+            <span><i class="key" style="background: var(--series-2)"></i>賣權淨額</span>
+        </div>
+    </div>
+    <div class="card-body">
         <svg class="chart net" id="chart-foreign" role="img" aria-label="外資台指選擇權買權與賣權未平倉淨金額折線圖"></svg>
         <div class="tooltip" id="tip-foreign"></div>
     </div>
+</div>
 
-    <div class="card">
-        <div class="card-head">
-            <h2>Put/Call Ratio vs 台指期</h2>
-            <div class="legend">
-                <span><i class="key box" style="background: var(--series-3)"></i>P/C 未平倉量比（左軸 %）</span>
-                <span id="legend-txf"><i class="key" style="background: var(--text-primary)"></i>台指期近月收盤（右軸 點）</span>
-            </div>
+<div class="card">
+    <div class="card-head">
+        <div>
+            <span class="kicker">Put / Call Ratio</span>
+            <h2>P/C Ratio vs 台指期</h2>
         </div>
+        <div class="legend">
+            <span><i class="key box" style="background: var(--series-3)"></i>P/C 未平倉量比（左軸 %）</span>
+            <span id="legend-txf"><i class="key" style="background: var(--price-line)"></i>台指期近月收盤（右軸 點）</span>
+        </div>
+    </div>
+    <div class="card-body">
         <svg class="chart" id="chart-pc" role="img" aria-label="台指選擇權 Put/Call 未平倉量比直條圖，疊加台指期近月收盤折線"></svg>
         <div class="tooltip" id="tip-pc"></div>
     </div>
+</div>
 
-    <details>
-        <summary>資料表</summary>
-        <div class="table-wrapper">
-            <table>
-                <thead><tr>
+<details class="card">
+    <summary>外資留倉與 P/C 資料表</summary>
+    <div class="table-wrapper">
+        <table>
+            <thead><tr>
                     <th>日期</th>
                     <th>外資買權 買方</th><th>外資買權 賣方</th><th>買權淨額(億)</th>
                     <th>外資賣權 買方</th><th>外資賣權 賣方</th><th>賣權淨額(億)</th>
                     <th>P/C 未平倉%</th><th>P/C 成交量%</th><th>台指期收盤</th>
                 </tr></thead>
-                <tbody id="table-series"></tbody>
-            </table>
-        </div>
-    </details>
+            <tbody id="table-series"></tbody>
+        </table>
+    </div>
+</details>
+{% endblock %}
 
-    <div class="footer">每個交易日 15:00 後自動抓取期交所資料 · 外資留倉口數單位為口，金額由千元換算為億元</div>
-</div>
+{% block footer_note %}外資留倉口數單位為口，金額由千元換算為億元 · 資料僅供參考{% endblock %}
 
+{% block scripts %}
 <script src="/static/charts.js"></script>
 <script>
 (function () {
     const C = window.MarketCharts;
     const S1 = 'var(--series-1)', S2 = 'var(--series-2)', S3 = 'var(--series-3)';
-    const TXF = 'var(--text-primary)';
+    const TXF = 'var(--price-line)';
     const yi = new Intl.NumberFormat('zh-TW', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
     const num = v => v == null ? '—' : C.fmt.format(v);
     const chg = v => v == null ? '—' : C.signed(v);
@@ -246,7 +264,7 @@
         }
 
         const latest = [foreign, pc].map(rows => rows.length ? rows[rows.length - 1].trade_date : '').sort().pop();
-        if (latest) tiles.push({ label: '最新交易日', value: latest, small: true });
+        C.setAsOf(latest);
         C.renderTiles(document.getElementById('tiles-series'), tiles);
 
         // 兩個來源依日期合併成一張表
@@ -285,5 +303,4 @@
     loadStrikes();
 })();
 </script>
-</body>
-</html>
+{% endblock %}

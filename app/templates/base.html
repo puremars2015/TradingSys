@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}TradingSys{% endblock %} · TradingSys</title>
+    <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap">
+    <script>
+        // 先決定主題再繪製，避免閃一下：使用者選過的優先，否則跟隨系統設定
+        (function () {
+            var theme = null;
+            try { theme = localStorage.getItem('theme'); } catch (e) {}
+            if (theme !== 'light' && theme !== 'dark') {
+                theme = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+            }
+            document.documentElement.setAttribute('data-theme', theme);
+        })();
+    </script>
+    <link rel="stylesheet" href="/static/app.css">
+    {% block head %}{% endblock %}
+</head>
+<body>
+{% set nav_groups = [
+    ('總覽', [
+        ('index', '/', '訊號儀表板', 'signal'),
+    ]),
+    ('行情監控', [
+        ('taiex_page', '/taiex', '加權指數', 'chart'),
+        ('foreign_futures_page', '/foreign-futures', '外資期貨留倉', 'layers'),
+        ('options_page', '/options', '選擇權未平倉', 'target'),
+    ]),
+] %}
+{% macro icon(name) -%}
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+{%- if name == 'signal' %}<path d="M3 12h4l3-8 4 16 3-8h4"/>
+{%- elif name == 'chart' %}<path d="M3 3v18h18"/><path d="m7 15 4-4 3 3 5-6"/>
+{%- elif name == 'layers' %}<path d="m12 3 9 5-9 5-9-5 9-5z"/><path d="m3 13 9 5 9-5"/>
+{%- elif name == 'target' %}<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="0.5"/>
+{%- elif name == 'menu' %}<path d="M4 6h16M4 12h16M4 18h16"/>
+{%- elif name == 'sun' %}<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>
+{%- elif name == 'moon' %}<path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/>
+{%- endif %}
+</svg>
+{%- endmacro %}
+
+<aside class="app-sidebar" id="sidebar">
+    <a class="brand" href="/">
+        <span class="brand-mark">{{ icon('chart') }}</span>
+        <span>
+            <span class="brand-name">TradingSys</span><br>
+            <span class="brand-sub">台指行情監控</span>
+        </span>
+    </a>
+    <nav class="side-nav" aria-label="主選單">
+        {% for heading, items in nav_groups %}
+        <div class="nav-heading">{{ heading }}</div>
+        {% for endpoint, href, label, icon_name in items %}
+        <a class="nav-link{% if request.endpoint == endpoint %} active{% endif %}" href="{{ href }}"{% if request.endpoint == endpoint %} aria-current="page"{% endif %}>
+            <span class="nav-icon">{{ icon(icon_name) }}</span>{{ label }}
+        </a>
+        {% endfor %}
+        {% endfor %}
+    </nav>
+    <div class="side-foot"><span class="dot"></span>每個交易日收盤後自動更新</div>
+</aside>
+<div class="sidebar-backdrop" id="sidebar-backdrop"></div>
+
+<div class="app-shell">
+    <header class="app-header">
+        <button type="button" class="icon-btn menu-btn" id="menu-btn" aria-label="開啟選單" aria-controls="sidebar" aria-expanded="false">{{ icon('menu') }}</button>
+        <div class="header-title">
+            <span class="kicker">{% block header_kicker %}TradingSys{% endblock %}</span>
+            <strong>{% block header_title %}{% endblock %}</strong>
+        </div>
+        <div class="header-spacer"></div>
+        <span class="header-chip"><span class="dot"></span>{% block header_chip %}資料來源：證交所・期交所{% endblock %}</span>
+        <button type="button" class="icon-btn theme-toggle" id="theme-toggle" aria-label="切換深色/淺色">
+            <span class="icon-sun">{{ icon('sun') }}</span><span class="icon-moon">{{ icon('moon') }}</span>
+        </button>
+    </header>
+
+    <main class="app-main">
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer class="app-footer">
+        <span>TradingSys · 台指行情監控與訊號推播</span>
+        <span>{% block footer_note %}資料僅供參考，不構成投資建議{% endblock %}</span>
+    </footer>
+</div>
+
+<script>
+(function () {
+    var body = document.body, btn = document.getElementById('menu-btn');
+    function setOpen(open) {
+        body.classList.toggle('sidebar-open', open);
+        btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    }
+    btn.addEventListener('click', function () { setOpen(!body.classList.contains('sidebar-open')); });
+    document.getElementById('sidebar-backdrop').addEventListener('click', function () { setOpen(false); });
+
+    document.getElementById('theme-toggle').addEventListener('click', function () {
+        var next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+        document.documentElement.setAttribute('data-theme', next);
+        try { localStorage.setItem('theme', next); } catch (e) {}
+        // 圖表顏色來自 CSS 變數，重畫一次讓座標文字寬度等跟著更新
+        window.dispatchEvent(new Event('resize'));
+    });
+})();
+</script>
+{% block scripts %}{% endblock %}
+</body>
+</html>
