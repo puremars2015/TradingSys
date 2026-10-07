@@ -51,6 +51,7 @@
 | `/api/options/strikes` | GET | 各履約價未平倉(`?date=`、`?expiry=`,預設最新交易日的最近月選) |
 | `/api/options/foreign` | GET | 外資台指選擇權留倉 JSON(`?days=N`,金額單位千元) |
 | `/api/options/pc-ratio` | GET | 台指選擇權 Put/Call 比 JSON(`?days=N`) |
+| `/api/futures-price` | GET | 台指期近月每日行情 JSON(`?days=N`,一般交易時段) |
 | `/` | GET | 狀態頁 |
 
 Payload 格式(裸陣列,也接受 `{"values":[...]}`):
@@ -120,11 +121,13 @@ curl -X POST http://localhost:8081/webhook/kd-sma \
 | `FOREIGN_FUTURES_COMMODITY` | 抓哪個期貨商品的外資留倉(預設 `TXF` 台指期) |
 | `TAIEX_ENABLED` | 是否啟動加權指數每日同步(預設 `true`) |
 | `OPTIONS_ENABLED` | 是否啟動選擇權未平倉每日同步(預設 `true`) |
+| `FUTURES_PRICE_ENABLED` | 是否啟動台指期近月每日行情同步(預設 `true`) |
 
 ## 每日行情資料(加權指數、外資期貨留倉、選擇權未平倉)
 
 - 排程:`app/market_data_scheduler.py` 一條背景執行緒跑所有每日任務。啟動先各同步一次(DB 空的會往回補一年),之後平日台北時間「公布時間–21:00」每 30 分鐘檢查,今天的資料進來就停(加權指數 14:00 起、外資期貨與選擇權 15:00 起)
 - 圖表:`app/static/charts.js` + `charts.css` 是所有看板共用的 SVG 圖表工具(無外部函式庫),支援折線、長條(可並排)、類別 x 軸、水平參考線
+- **單位不同的資料不畫雙 y 軸**:改成上下兩張共用日期軸的圖、十字線連動(`drawChart` 的 `onHover` + 回傳的 `mark/unmark`)。目前用在外資期貨淨額 + 加權指數、P/C Ratio + 台指期
 - 期交所 CSV 下載共用 `app/services/taifex_client.py`(Big5 解碼、找表頭、分段補資料)
 - **證交所對連續請求很敏感**,太快會被暫時封鎖 IP;加權指數補資料逐月抓、每次間隔 3 秒
 
@@ -139,6 +142,12 @@ curl -X POST http://localhost:8081/webhook/kd-sma \
 - 抓取:`app/services/foreign_futures.py`,來源是期交所「三大法人 - 區分各期貨契約」CSV 下載端點 `futContractsDateDown`(Big5),只留「外資及陸資」那列的未平倉口數/金額
 - 資料表:`foreign_futures_oi`(`trade_date` + `commodity` 為主鍵,重抓會覆寫)
 - 手動補資料:`docker compose exec flask python -m app.services.foreign_futures --backfill 365`
+
+### 台指期近月行情(`/api/futures-price`)
+
+- 抓取:`app/services/futures_price.py`,來源是期交所「期貨每日交易行情」`futDataDown`(commodity `TX`),每天只留一般交易時段的近月單月合約(排除價差、盤後)→ `futures_daily`
+- 用途:`/options` 的 P/C Ratio 圖下方對照價格
+- 手動補資料:`docker compose exec flask python -m app.services.futures_price --backfill 365`
 
 ### 選擇權未平倉(`/options`)
 

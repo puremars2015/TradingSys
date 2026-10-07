@@ -99,6 +99,19 @@ def init_db():
         )
     ''')
 
+    # 台指期近月每日行情（一般交易時段，來源：期交所 futDataDown）
+    conn.execute('''
+        CREATE TABLE IF NOT EXISTS futures_daily (
+            trade_date TEXT NOT NULL,
+            commodity TEXT NOT NULL,
+            contract_month TEXT,
+            open REAL, high REAL, low REAL, close REAL, settle REAL,
+            volume INTEGER, open_interest INTEGER,
+            updated_at TEXT NOT NULL,
+            PRIMARY KEY (trade_date, commodity)
+        )
+    ''')
+
     # 台指選擇權全市場 Put/Call 比（ratio 單位為 %）
     conn.execute('''
         CREATE TABLE IF NOT EXISTS options_pc_ratio (
@@ -595,3 +608,16 @@ def get_option_strikes(trade_date: str, expiry: str) -> list:
     ''', (prev, trade_date, expiry)).fetchall()
     conn.close()
     return [dict(r) for r in rows]
+
+
+def upsert_futures_price(rows: list) -> int:
+    return _upsert('futures_daily', ('trade_date', 'commodity'),
+                   ('contract_month', 'open', 'high', 'low', 'close', 'settle', 'volume', 'open_interest'), rows)
+
+
+def get_latest_futures_price_date(commodity: str) -> str | None:
+    return _latest_date('futures_daily', 'WHERE commodity = ?', (commodity,))
+
+
+def get_futures_price(commodity: str, days: int | None = None) -> list:
+    return _rows_since('futures_daily', days, 'commodity = ?', (commodity,))

@@ -46,6 +46,9 @@ class Config:
     # 台指選擇權未平倉（期交所）：外資留倉、P/C Ratio、各履約價分布
     OPTIONS_ENABLED = os.getenv('OPTIONS_ENABLED', 'true').lower() == 'true'
 
+    # 台指期近月每日行情（期交所）
+    FUTURES_PRICE_ENABLED = os.getenv('FUTURES_PRICE_ENABLED', 'true').lower() == 'true'
+
     # LINE Bot
     LINE_CHANNEL_ACCESS_TOKEN = os.getenv('LINE_CHANNEL_ACCESS_TOKEN', '')
     LINE_CHANNEL_SECRET = os.getenv('LINE_CHANNEL_SECRET', '')

@@ -82,6 +82,8 @@
             </div>
         </div>
         <svg class="chart net" id="chart-pc" role="img" aria-label="台指選擇權 Put/Call 未平倉量比與成交量比折線圖"></svg>
+        <div class="panel-label" id="label-pc-txf"><i class="key" style="background: var(--text-secondary)"></i>台指期近月收盤（點）· 與上圖日期對齊</div>
+        <svg class="chart short" id="chart-pc-txf" role="img" aria-label="同期間台指期近月收盤價折線圖"></svg>
         <div class="tooltip" id="tip-pc"></div>
     </div>
 
@@ -93,7 +95,7 @@
                     <th>日期</th>
                     <th>外資買權 買方</th><th>外資買權 賣方</th><th>買權淨額(億)</th>
                     <th>外資賣權 買方</th><th>外資賣權 賣方</th><th>賣權淨額(億)</th>
-                    <th>P/C 未平倉%</th><th>P/C 成交量%</th>
+                    <th>P/C 未平倉%</th><th>P/C 成交量%</th><th>台指期收盤</th>
                 </tr></thead>
                 <tbody id="table-series"></tbody>
             </table>
@@ -108,11 +110,13 @@
 (function () {
     const C = window.MarketCharts;
     const S1 = 'var(--series-1)', S2 = 'var(--series-2)', S3 = 'var(--series-3)', MUTED = 'var(--text-muted)';
+    const TXF = 'var(--text-secondary)';
     const yi = new Intl.NumberFormat('zh-TW', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
     const num = v => v == null ? '—' : C.fmt.format(v);
     const chg = v => v == null ? '—' : C.signed(v);
     const pctText = v => v == null ? '—' : v.toFixed(2) + '%';
     const yiText = v => v == null ? '—' : C.signed(v, yi);
+    const priceText = v => v == null ? '—' : C.fmt.format(v);
 
     // ── 各履約價未平倉 ────────────────────────────────────────
     const dateSelect = document.getElementById('strike-date');
@@ -225,15 +229,38 @@
                 { label: 'P/C 未平倉量比', color: S3, value: pctText(last.oi_ratio), delta: `Put ${num(last.put_oi)}・Call ${num(last.call_oi)} 口` },
                 { label: 'P/C 成交量比', color: MUTED, value: pctText(last.volume_ratio), delta: `Put ${num(last.put_volume)}・Call ${num(last.call_volume)} 口` },
             );
-            C.drawChart(document.getElementById('chart-pc'), document.getElementById('tip-pc'), pc, [
+            // P/C 比（%）與台指期價格（點）單位不同，分成上下兩張共用日期軸的圖，十字線連動
+            const tipPc = document.getElementById('tip-pc');
+            const txfSvg = document.getElementById('chart-pc-txf');
+            const hasTxf = pc.some(r => r.txf_close != null);
+            txfSvg.style.display = hasTxf ? '' : 'none';
+            document.getElementById('label-pc-txf').style.display = hasTxf ? '' : 'none';
+            let txfChart = null;
+            const pcChart = C.drawChart(document.getElementById('chart-pc'), tipPc, pc, [
                 { key: 'oi_ratio', name: '未平倉量比', color: S3 },
                 { key: 'volume_ratio', name: '成交量比', color: MUTED, label: false },
             ], {
                 valueText: v => pctText(v), axisText: v => v + '%', labelText: v => v.toFixed(1) + '%',
                 refLines: [{ value: 100, label: '100%' }],
+                extraTip: hasTxf ? [{ name: '台指期', color: TXF, value: r => priceText(r.txf_close) }] : [],
+                onHover: i => txfChart && (i == null ? txfChart.unmark() : txfChart.mark(i)),
             });
+            if (hasTxf) {
+                txfChart = C.drawChart(txfSvg, tipPc, pc, [
+                    { key: 'txf_close', name: '台指期', color: TXF },
+                ], {
+                    valueText: priceText, axisText: v => C.fmt.format(v), labelText: v => C.fmt.format(Math.round(v)),
+                    extraTip: [
+                        { name: '未平倉量比', color: S3, value: r => pctText(r.oi_ratio) },
+                        { name: '成交量比', color: MUTED, value: r => pctText(r.volume_ratio) },
+                    ],
+                    onHover: i => i == null ? pcChart.unmark() : pcChart.mark(i),
+                });
+            }
         } else {
             C.showEmpty(['chart-pc'], 'python -m app.services.options --backfill 365');
+            document.getElementById('chart-pc-txf').style.display = 'none';
+            document.getElementById('label-pc-txf').style.display = 'none';
         }
 
         const latest = [foreign, pc].map(rows => rows.length ? rows[rows.length - 1].trade_date : '').sort().pop();
@@ -249,7 +276,7 @@
             return [
                 r.trade_date, num(f.call_buy_oi), num(f.call_sell_oi), yiText(f.call_net_yi),
                 num(f.put_buy_oi), num(f.put_sell_oi), yiText(f.put_net_yi),
-                pctText(p.oi_ratio), pctText(p.volume_ratio),
+                pctText(p.oi_ratio), pctText(p.volume_ratio), priceText(p.txf_close),
             ];
         });
     }
@@ -259,7 +286,8 @@
     Promise.all([
         fetch('/api/options/foreign').then(r => r.json()).catch(() => ({ rows: [] })),
         fetch('/api/options/pc-ratio').then(r => r.json()).catch(() => ({ rows: [] })),
-    ]).then(([foreign, pc]) => {
+        fetch('/api/futures-price').then(r => r.json()).catch(() => ({ rows: [] })),
+    ]).then(([foreign, pc, futures]) => {
         // 金額單位千元：1 億 = 100,000 千元
         foreignRows = (foreign.rows || []).filter(r => r.call_buy_oi != null && r.put_buy_oi != null).map(r => Object.assign({}, r, {
             call_net_oi: r.call_buy_oi - r.call_sell_oi,
@@ -267,7 +295,9 @@
             call_net_yi: r.call_buy_amount != null && r.call_sell_amount != null ? (r.call_buy_amount - r.call_sell_amount) / 1e5 : null,
             put_net_yi: r.put_buy_amount != null && r.put_sell_amount != null ? (r.put_buy_amount - r.put_sell_amount) / 1e5 : null,
         }));
-        pcRows = (pc.rows || []).filter(r => r.oi_ratio != null);
+        const txfByDate = Object.fromEntries((futures.rows || []).map(r => [r.trade_date, r.close ?? r.settle]));
+        pcRows = (pc.rows || []).filter(r => r.oi_ratio != null)
+            .map(r => Object.assign({}, r, { txf_close: txfByDate[r.trade_date] ?? null }));
         renderSeries(currentDays());
     });
     loadStrikes();

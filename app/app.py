@@ -15,7 +15,9 @@ from app.config import Config
 from app.models import (
     init_db, get_latest_signal, get_signals_count, get_signals_page, get_foreign_futures, get_taiex,
     get_foreign_options, get_pc_ratio, get_option_strike_dates, get_option_expiries, get_option_strikes,
+    get_futures_price,
 )
+from app.services import futures_price as futures_price_service
 from app.services import options as options_service
 from app.services.signal_analyzer import parse_payload, process_signal
 from app.services.telegram_bot import send_trading_notification
@@ -163,6 +165,15 @@ def options_foreign_api():
 def options_pc_ratio_api():
     """台指選擇權 Put/Call 比（由舊到新，ratio 單位 %）。"""
     return jsonify({'rows': get_pc_ratio(_days_arg())})
+
+
+@app.route('/api/futures-price')
+def futures_price_api():
+    """台指期近月每日行情（由舊到新，一般交易時段）。"""
+    return jsonify({
+        'commodity': futures_price_service.COMMODITY,
+        'rows': get_futures_price(futures_price_service.COMMODITY, _days_arg()),
+    })
 
 
 @app.route('/api/options/strikes')
