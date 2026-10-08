@@ -1,12 +1,9 @@
 {% extends 'base.html' %}
 {% block title %}訊號儀表板{% endblock %}
-{% block header_kicker %}總覽{% endblock %}
-{% block header_title %}訊號儀表板{% endblock %}
-{% block header_chip %}Webhook：POST /webhook/kd-sma{% endblock %}
 
 {% macro tile(label, value, delta=None, status=None) -%}
 <div class="tile">
-    {% if status %}<div class="tile-icon"><span class="status-dot {{ 'ok' if status == 'ok' else 'bad' }}"></span></div>{% endif %}
+    {% if status %}<div class="tile-icon status{{ '' if status == 'ok' else ' bad' }}"><span class="status-dot {{ 'ok' if status == 'ok' else 'bad' }}"></span></div>{% endif %}
     <div class="tile-body">
         <div class="label">{{ label }}</div>
         <div class="value small">{{ value }}</div>

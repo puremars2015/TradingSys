@@ -256,6 +256,7 @@
             // 左側小方塊放該數列的線條色，和圖例、圖上的線對應
             if (t.color) {
                 const icon = htmlEl('div', 'tile-icon');
+                icon.style.setProperty('--c', t.color);  // 方塊底色用該數列顏色的淡色
                 icon.appendChild(lineKey(t.color));
                 tile.appendChild(icon);
             }
