@@ -7,7 +7,7 @@ class Config:
     """Application configuration"""
     
     # Flask
-    SECRET_KEY = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-production')
+    SECRET_KEY = os.getenv('SECRET_KEY', '')
     DEBUG = os.getenv('DEBUG', 'False').lower() == 'true'
     
     # Database
@@ -18,8 +18,8 @@ class Config:
     DEFAULT_SYMBOL = os.getenv('DEFAULT_SYMBOL', 'TXF1!')
     
     # Telegram
-    TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN', '8505755301:AAHdjoMsV18SMBkA5IR0BPnwd7L7UWAEXxg')
-    TELEGRAM_USER_ID = os.getenv('TELEGRAM_USER_ID', '732924840')
+    TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN', '')
+    TELEGRAM_USER_ID = os.getenv('TELEGRAM_USER_ID', '')
     TELEGRAM_BOT_TOKEN_2 = os.getenv('TELEGRAM_BOT_TOKEN_2', '')
     TELEGRAM_USER_ID_2 = os.getenv('TELEGRAM_USER_ID_2', '')
     

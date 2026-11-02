@@ -151,3 +151,9 @@ TradingSys/
 ## License
 
 MIT
+
+## 憑證設定與版本控管
+
+- 複製 `.env.example` 為本機 `.env`，填入自己的憑證；範例只保留欄位，不含密碼或 token。
+- `.env` 不應受 Git 追蹤，也不應進入 Docker image；Compose 透過 `env_file` 在執行時載入。
+- 已公開過的憑證必須在各服務撤銷／輪替；刪除目前檔案不會移除舊 Git 歷史、外部副本或已建置的 image。

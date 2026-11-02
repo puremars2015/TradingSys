@@ -64,5 +64,5 @@ SMA加權(只調整強度,不單獨產生買賣建議):
 2. 只有符合交易推播條件且未被去重的資料，才呼叫 LLM 產生建議訊息並發送到 Secondary Telegram Bot
 
 ## telegram
-1. bot token:8505755301:AAHdjoMsV18SMBkA5IR0BPnwd7L7UWAEXxg
-2. user id:732924840
+1. bot token：由 `.env` 的 `TELEGRAM_BOT_TOKEN` 設定，不在程式或文件保存憑證。
+2. user id：由 `.env` 的 `TELEGRAM_USER_ID` 設定。

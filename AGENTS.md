@@ -110,7 +110,7 @@ curl -X POST http://localhost:8081/webhook/kd-sma \
 |------|------|
 | `DEFAULT_SYMBOL` | 商品代號,payload 不帶所以固定在這(預設 `TXF1!`) |
 | `TELEGRAM_BOT_TOKEN` | 主 bot token(推完整訊號) |
-| `TELEGRAM_USER_ID` | 主 bot 接收者 user id(目前是 `732924840`) |
+| `TELEGRAM_USER_ID` | 主 bot 接收者 user id(由環境變數設定) |
 | `TELEGRAM_BOT_TOKEN_2` | 副 bot token(訂閱制測試訊號,可留空 = 停用副 bot) |
 | `TELEGRAM_USER_ID_2` | 副 bot 的固定接收者(遷移時自動加入訂閱表) |
 | `OPENROUTER_API_KEY` | LLM API key |
